@@ -4,10 +4,7 @@ import logging
 import os
 import time
 from datetime import datetime
-from contextlib import contextmanager
 
-import psycopg2
-import pymysql
 from jinja2 import Environment, FileSystemLoader
 
 from srcf import database, pwgen
@@ -15,7 +12,9 @@ from srcf.database import schema, queries, Job as db_Job
 from srcf.database.schema import Member, Society, Domain
 from srcf.mail import send_mail
 
-from srcflib.tasks import mailman, membership
+from srcflib.tasks import mailman, membership, mysql, pgsql
+from srcflib.plumbing.mysql import context as mysql_context
+from srcflib.plumbing.pgsql import context as pgsql_context
 
 from . import utils
 
@@ -38,39 +37,6 @@ def render_domain_text(domain):
         return "%s (%s)" % (domain, domain.encode("ascii").decode("idna"))
     else:
         return domain
-
-
-@contextmanager
-def mysql_context(job):
-    with open("/root/mysql-root-password", "r") as pwfh:
-        rootpw = pwfh.readline().rstrip()
-    job.log("Connect to MySQL db")
-    conn = pymysql.connect(user="root", host="mysql.internal", passwd=rootpw, db="mysql")
-    try:
-        yield conn, conn.cursor()
-    finally:
-        conn.close()
-
-
-@contextmanager
-def pgsql_context(job):
-    job.log("Connect to PostgreSQL db")
-    # TODO: don't connect to the sysadmins database this way -- it can deadlock with SQLAlchemy.
-    # Either allow connections to an alternate database, or connect in a safer way.
-    conn = psycopg2.connect(host="postgres.internal", database="sysadmins")
-    try:
-        yield conn, conn.cursor()
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def sql_exec(job, cur, desc, sql, *vals):
-    job.log(desc)
-    try:
-        cur.execute(sql, vals)
-    except (pymysql.MySQLError, psycopg2.Error) as e:
-        raise JobFailed(desc, str(e))
 
 
 def get_environment():
@@ -1084,9 +1050,6 @@ class ResetSocietyMailingListPassword(SocietyJob):
         self.log("Send new password")
         mail_users(self.society, "Mailing list password reset", "list-password", listname=self.listname, password=password, requester=self.owner)
 
-# Here be dragons: we trust the value of crsid a *lot* (such that it appears unescaped in SQL queries).
-# Quote with backticks and ensure only valid characters (alnum for crsid, alnum + [_-] for society).
-
 
 @add_job
 class CreateMySQLUserDatabase(Job):
@@ -1104,15 +1067,12 @@ class CreateMySQLUserDatabase(Job):
         crsid = self.owner.crsid
         assert crsid.isalnum()
 
-        password = make_pwd()
-
-        with mysql_context(self) as (db, cursor):
-            sql_exec(self, cursor, "Create database",         "CREATE DATABASE " + crsid)
-            sql_exec(self, cursor, "Grant privileges (base)", "GRANT ALL PRIVILEGES ON `" + crsid + "`.*    to '" + crsid + "'@'%%'")
-            sql_exec(self, cursor, "Grant privileges (wild)", "GRANT ALL PRIVILEGES ON `" + crsid + "/%%`.* to '" + crsid + "'@'%%'")
-            sql_exec(self, cursor, "Set password",            "SET PASSWORD FOR '" + crsid + "'@'%%' = %s", password)
+        with mysql_context() as cursor:
+            self.log("Create account and database")
+            result = mysql.create_account(cursor, self.owner)
 
         self.log("Send password")
+        password, _ = result.value
         mail_users(self.owner, "MySQL database created", "mysql-create", password=password)
 
     def __repr__(self): return "<CreateMySQLUserDatabase {0.owner_crsid}>".format(self)
@@ -1137,15 +1097,12 @@ class ResetMySQLUserPassword(Job):
         crsid = self.owner.crsid
         assert crsid.isalnum()
 
-        password = make_pwd()
-
-        with mysql_context(self) as (db, cursor):
-            sql_exec(self, cursor, "(Re-)grant privileges (base)", "GRANT ALL PRIVILEGES ON `" + crsid + "`.*    to '" + crsid + "'@'%%'")
-            sql_exec(self, cursor, "(Re-)grant privileges (wild)", "GRANT ALL PRIVILEGES ON `" + crsid + "/%%`.* to '" + crsid + "'@'%%'")
-            sql_exec(self, cursor, "Reset password", "SET PASSWORD FOR '" + crsid + "'@'%%' = %s", password)
+        with mysql_context() as cursor:
+            self.log("Reset password")
+            result = mysql.reset_password(cursor, self.owner)
 
         self.log("Send new password")
-        mail_users(self.owner, "MySQL database password reset", "mysql-password", password=password)
+        mail_users(self.owner, "MySQL database password reset", "mysql-password", password=result.value)
 
     def __repr__(self): return "<ResetMySQLUserPassword {0.owner_crsid}>".format(self)
     def __str__(self): return "Reset user MySQL password: {0.owner.crsid} ({0.owner.name})".format(self)
@@ -1170,30 +1127,18 @@ class CreateMySQLSocietyDatabase(SocietyJob):
         socname = self.society_society
         assert utils.is_valid_socname(socname)
 
-        password = make_pwd()
-        usrpassword = None
-
-        with mysql_context(self) as (db, cursor):
-            sql_exec(self, cursor, "Create society database", "CREATE DATABASE " + socname)
-
-            sql_exec(self, cursor, "Check for existing owner user", "SELECT EXISTS (SELECT DISTINCT User FROM mysql.user WHERE User = %s) AS e", self.owner.crsid)
-            if cursor.fetchone()[0] == 0:
-                usrpassword = make_pwd()
-
-            sql_exec(self, cursor, "Grant privileges (society, base)", "GRANT ALL PRIVILEGES ON `" + socname + "`.*   TO '" + socname + "'@'%%'")
-            sql_exec(self, cursor, "Grant privileges (society, wild)", "GRANT ALL PRIVILEGES ON `" + socname + "/%%`.* TO '" + socname + "'@'%%'")
-            sql_exec(self, cursor, "Grant privileges (user, base)",    "GRANT ALL PRIVILEGES ON `" + socname + "`.*   TO '" + self.owner.crsid + "'@'%%'")
-            sql_exec(self, cursor, "Grant privileges (user, wild)",    "GRANT ALL PRIVILEGES ON `" + socname + "/%%`.* TO '" + self.owner.crsid + "'@'%%'")
-            sql_exec(self, cursor, "Set society user password",        "SET PASSWORD FOR '" + socname + "'@'%%' = %s", password)
-
-            if usrpassword is not None:
-                sql_exec(self, cursor, "Set owner user password", "SET PASSWORD FOR " + self.owner.crsid + "@'%%' = %s", usrpassword)
+        with mysql_context() as cursor:
+            self.log("Create owner account and database")
+            result_user = mysql.create_account(cursor, self.owner)
+            self.log("Create society account and database")
+            result_soc = mysql.create_account(cursor, self.society)
 
         self.log("Send society password")
-        mail_users(self.society, "MySQL database created", "mysql-create", password=password, requester=self.owner)
-        if usrpassword:
+        mail_users(self.society, "MySQL database created", "mysql-create", password=result_soc.value, requester=self.owner)
+
+        if result_user.value:
             self.log("Send owner password")
-            mail_users(self.owner, "MySQL account created", "mysql-account", password=usrpassword, database=self.society)
+            mail_users(self.owner, "MySQL account created", "mysql-account", password=result_user.value, database=self.society)
 
     def __repr__(self): return "<CreateMySQLSocietyDatabase {0.society_society}>".format(self)
     def __str__(self): return "Create society MySQL database: {0.society_society}".format(self)
@@ -1218,17 +1163,12 @@ class ResetMySQLSocietyPassword(SocietyJob):
         socname = self.society_society
         assert utils.is_valid_socname(socname)
 
-        password = make_pwd()
-
-        with mysql_context(self) as (db, cursor):
-            sql_exec(
-                self, cursor,
-                "Set password",
-                "SET PASSWORD FOR '" + socname.replace('-', '_') + "'@'%%' = %s", password
-            )
+        with mysql_context() as cursor:
+            self.log("Reset password")
+            result = mysql.reset_password(cursor, self.society)
 
         self.log("Send new password")
-        mail_users(self.society, "MySQL database password reset", "mysql-password", password=password, requester=self.owner)
+        mail_users(self.society, "MySQL database password reset", "mysql-password", password=result.value, requester=self.owner)
 
     def __repr__(self): return "<ResetMySQLSocietyPassword {0.society_society}>".format(self)
     def __str__(self): return "Reset society MySQL password: {0.society_society}".format(self)
@@ -1250,34 +1190,12 @@ class CreatePostgresUserDatabase(Job):
         crsid = self.owner.crsid
         assert crsid.isalnum()
 
-        usercreated = False
-        password = make_pwd()
-        dbcreated = False
+        with pgsql_context() as cursor:
+            self.log("Create account and database")
+            result = pgsql.create_account(cursor, self.owner)
 
-        with pgsql_context(self) as (db, cursor):
-            sql_exec(self, cursor, "Check for existing user", "SELECT rolname FROM pg_roles WHERE rolname = %s", crsid)
-            results = cursor.fetchall()
-
-            if len(results) == 0:
-                sql_exec(self, cursor, "Create user", "CREATE USER " + crsid + " ENCRYPTED PASSWORD %s NOCREATEDB NOCREATEUSER", password)
-                usercreated = True
-            else:
-                sql_exec(self, cursor, "(Re-)enable user logins", "ALTER ROLE " + crsid + " LOGIN")
-
-            sql_exec(self, cursor, "Check for existing database", "SELECT datname FROM pg_database WHERE datname = %s", crsid)
-            results = cursor.fetchall()
-
-            if len(results) == 0:
-                # CREATE DATABASE not supported inside a transaction
-                cursor.execute("COMMIT")
-                sql_exec(self, cursor, "Create database", "CREATE DATABASE " + crsid + " OWNER " + crsid)
-                cursor.execute("BEGIN")
-                dbcreated = True
-
-            if not dbcreated and not usercreated:
-                raise JobFailed(crsid + " already has a functioning database")
-
-        self.log("Send new password")
+        self.log("Send password")
+        password, _ = result.value
         mail_users(self.owner, "PostgreSQL database created", "postgres-create", password=password)
 
     def __repr__(self): return "<CreatePostgresUserDatabase {0.owner_crsid}>".format(self)
@@ -1302,20 +1220,12 @@ class ResetPostgresUserPassword(Job):
         crsid = self.owner.crsid
         assert crsid.isalnum()
 
-        password = make_pwd()
-
-        with pgsql_context(self) as (db, cursor):
-            sql_exec(self, cursor, "Check for existing user", "SELECT rolname FROM pg_roles WHERE rolname = %s", crsid)
-            results = cursor.fetchall()
-
-            if len(results) == 0:
-                sql_exec(self, cursor, "Create user", "CREATE USER " + crsid + " ENCRYPTED PASSWORD %s NOCREATEDB NOCREATEUSER", password)
-            else:
-                sql_exec(self, cursor, "(Re-)enable user logins", "ALTER ROLE " + crsid + " LOGIN")
-                sql_exec(self, cursor, "Reset password", "ALTER USER " + crsid + " PASSWORD %s", password)
+        with pgsql_context() as cursor:
+            self.log("Reset password")
+            result = pgsql.reset_password(cursor, self.owner)
 
         self.log("Send new password")
-        mail_users(self.owner, "PostgreSQL database password reset", "postgres-password", password=password)
+        mail_users(self.owner, "PostgreSQL database password reset", "postgres-password", password=result.value)
 
     def __repr__(self): return "<ResetPostgresUserPassword {0.owner_crsid}>".format(self)
     def __str__(self): return "Reset user PostgreSQL password: {0.owner.crsid} ({0.owner.name})".format(self)
@@ -1340,52 +1250,18 @@ class CreatePostgresSocietyDatabase(SocietyJob):
         socname = self.society_society
         assert utils.is_valid_socname(socname)
 
-        usercreated = False
-        userpassword = make_pwd()
-        socusercreated = False
-        socpassword = make_pwd()
-        dbcreated = False
-
-        with pgsql_context(self) as (db, cursor):
-            sql_exec(self, cursor, "Check for existing owner user", "SELECT usename FROM pg_shadow WHERE usename = %s", crsid)
-            results = cursor.fetchall()
-
-            if len(results) == 0:
-                sql_exec(self, cursor, "Create owner user", "CREATE USER " + crsid + " ENCRYPTED PASSWORD %s NOCREATEDB NOCREATEUSER", userpassword)
-                usercreated = True
-            else:
-                sql_exec(self, cursor, "(Re-)enable owner user logins", "ALTER ROLE " + crsid + " LOGIN")
-
-            sql_exec(self, cursor, "Check for existing society user", "SELECT usename FROM pg_shadow WHERE usename = '" + socname + "'")
-            results = cursor.fetchall()
-
-            if len(results) == 0:
-                sql_exec(self, cursor, "Create society user", "CREATE USER " + socname + " ENCRYPTED PASSWORD %s NOCREATEDB NOCREATEUSER", socpassword)
-                socusercreated = True
-            else:
-                sql_exec(self, cursor, "(Re-)enable society user logins", "ALTER ROLE " + socname + " LOGIN")
-
-            sql_exec(self, cursor, "Check for existing society database", "SELECT datname FROM pg_database WHERE datname = %s", socname)
-            results = cursor.fetchall()
-
-            if len(results) == 0:
-                # CREATE DATABASE not supported inside a transaction
-                cursor.execute("COMMIT")
-                sql_exec(self, cursor, "Create society database", "CREATE DATABASE " + socname + " OWNER " + socname)
-                cursor.execute("BEGIN")
-                dbcreated = True
-
-            self.log("Grant owner access")
-            sql_exec(self, cursor, "Grant owner access", "GRANT " + socname + " TO " + crsid)
-
-            if not dbcreated and not usercreated and not socusercreated:
-                raise JobFailed(socname + " already has a functioning database")
+        with pgsql_context() as cursor:
+            self.log("Create owner account and database")
+            result_user = pgsql.create_account(cursor, self.owner)
+            self.log("Create society account and database")
+            result_soc = pgsql.create_account(cursor, self.society)
 
         self.log("Send society password")
-        mail_users(self.society, "PostgreSQL database created", "postgres-create", password=socpassword, requester=self.owner)
-        if usercreated:
+        mail_users(self.society, "PostgreSQL database created", "postgres-create", password=result_soc.value, requester=self.owner)
+
+        if result_user.value:
             self.log("Send owner password")
-            mail_users(self.owner, "PostgreSQL account created", "postgres-account", password=userpassword, database=self.society)
+            mail_users(self.owner, "PostgreSQL account created", "postgres-account", password=result_user.value, database=self.society)
 
     def __repr__(self): return "<CreatePostgresSocietyDatabase {0.society_society}>".format(self)
     def __str__(self): return "Create society PostgreSQL database: {0.society_society}".format(self)
@@ -1410,19 +1286,12 @@ class ResetPostgresSocietyPassword(SocietyJob):
         socname = self.society_society
         assert utils.is_valid_socname(socname)
 
-        password = make_pwd()
-
-        with pgsql_context(self) as (db, cursor):
-            sql_exec(self, cursor, "Check for existing user", "SELECT usename FROM pg_shadow WHERE usename = %s", socname)
-            results = cursor.fetchall()
-
-            if len(results) == 0:
-                raise JobFailed(socname + " does not have a Postgres user")
-
-            sql_exec(self, cursor, "Reset password", "ALTER USER " + socname + " PASSWORD %s", password)
+        with pgsql_context() as cursor:
+            self.log("Reset password")
+            result = pgsql.reset_password(cursor, self.society)
 
         self.log("Send new password")
-        mail_users(self.society, "PostgreSQL database password reset", "postgres-password", password=password, requester=self.owner)
+        mail_users(self.society, "PostgreSQL database password reset", "postgres-password", password=result.value, requester=self.owner)
 
     def __repr__(self): return "<ResetPostgresSocietyPassword {0.society_society}>".format(self)
     def __str__(self): return "Reset society PostgreSQL password: {0.society_society}".format(self)
