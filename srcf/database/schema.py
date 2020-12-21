@@ -254,7 +254,7 @@ if is_root or is_webapp:
         def __repr__(self):
             return "<{}: {} ({})>".format(self.__class__.__name__, self.domain, self.name)
 
-    JobState = Enum('unapproved', 'queued', 'running', 'done', 'failed',
+    JobState = Enum('unapproved', 'queued', 'running', 'done', 'failed', 'withdrawn',
                     name='job_state')
     LogType = Enum('started', 'progress', 'output', 'done', 'failed', 'note',
                    name='log_type')
