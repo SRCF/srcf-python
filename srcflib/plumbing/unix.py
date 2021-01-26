@@ -105,7 +105,6 @@ def set_real_name(user: User, real_name: str = "") -> Result:
     if current == real_name:
         return Result(State.unchanged)
     command(["/usr/bin/chfn", "--full-name", real_name, user.pw_name])
-    user.pw_gecos = ",".join([real_name, *rest])
     return Result(State.success)
 
 
