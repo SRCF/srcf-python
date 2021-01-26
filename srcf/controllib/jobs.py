@@ -15,7 +15,7 @@ from srcf.database import schema, queries, Job as db_Job
 from srcf.database.schema import Member, Society, Domain
 from srcf.mail import send_mail
 
-from srcflib.tasks import mailman
+from srcflib.tasks import mailman, membership
 
 from . import utils
 
@@ -492,6 +492,36 @@ class ResetUserPassword(Job):
 
 
 @add_job
+class UpdateName(Job):
+    JOB_TYPE = 'update_name'
+
+    def __init__(self, row):
+        self.row = row
+
+    @classmethod
+    def new(cls, member, preferred_name, surname):
+        args = {"preferred_name": preferred_name,
+                "surname": surname}
+        require_approval = member.danger
+        return cls.create(member, args, require_approval)
+
+    preferred_name = property(lambda s: s.row.args["preferred_name"])
+    surname = property(lambda s: s.row.args["surname"])
+    name = property(lambda s: "{} {}".format(s.preferred_name, s.surname))
+
+    def __repr__(self): return "<UpdateName {0.owner_crsid}>".format(self)
+    def __str__(self): return "Update name: {0.owner.crsid} ({0.name})".format(self)
+
+    def run(self, sess):
+        old_name = self.owner.name
+        self.log("Update name")
+        membership.update_member_name(self.owner, self.preferred_name, self.surname)
+
+        self.log("Send confirmation")
+        mail_users(self.owner, "Name updated", "name", old_name=old_name, new_name=self.name)
+
+
+@add_job
 class UpdateEmailAddress(Job):
     JOB_TYPE = 'update_email_address'
 
@@ -816,6 +846,37 @@ class CreateSociety(SocietyJob):
 
     def __repr__(self): return "<CreateSociety {0.society_society}>".format(self)
     def __str__(self): return "Create society: {0.society_society} ({0.description})".format(self)
+
+
+@add_job
+class UpdateSocietyDescription(SocietyJob):
+    JOB_TYPE = 'update_society_description'
+
+    def __init__(self, row):
+        self.row = row
+
+    @classmethod
+    def new(cls, requesting_member, society, description):
+        args = {
+            "society": society.society,
+            "description": description
+        }
+        require_approval = requesting_member.danger or society.danger
+        return cls.create(requesting_member, args, require_approval)
+
+    description = property(lambda s: s.row.args["description"])
+
+    def __repr__(self): return "<UpdateSocietyDescription {0.society_society}>".format(self)
+    def __str__(self): return "Update society description: {0.society_society} ({0.description})".format(self)
+
+    def run(self, sess):
+        old_description = self.society.description
+        self.log("Update description")
+        membership.update_society_description(self.society, self.description)
+
+        self.log("Send confirmation")
+        mail_users(self.society, "Description updated", "description",
+                   old_description=old_description, new_description=self.description)
 
 
 @add_job
