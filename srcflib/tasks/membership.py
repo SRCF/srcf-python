@@ -3,27 +3,27 @@ Creation and management of member and society accounts.
 """
 
 import os
-from typing import Set
+from typing import Set, Tuple
 
 from srcf.database import Member, Society
 from srcf.database.queries import get_member, get_society
 
-from ..plumbing import bespoke, mailman, pgsql as pgsql_p, ResultSet, unix
+from ..plumbing import bespoke, mailman, Password, pgsql as pgsql_p, ResultSet, unix
 from ..plumbing.mysql import context as mysql_context
 from . import mysql, pgsql
 
 
 def create_member(crsid: str, preferred_name: str, surname: str, email: str,
                   mail_handler: str, is_member: bool = True, is_user: bool = True,
-                  social: bool = False) -> ResultSet[Member]:
+                  social: bool = False) -> ResultSet[Tuple[Member, Password]]:
     """
     Register and provision a new member of the SRCF.
     """
-    results = ResultSet[Member]()
+    results = ResultSet[Tuple[Member, Password]]()
     with bespoke.context() as sess:
         result = bespoke.create_member(sess, crsid, preferred_name, surname, email,
                                        mail_handler, is_member, is_user)
-        mem = results.add(result, True).value
+        mem = results.add(result).value
     user = results.add(unix.create_user(crsid, uid=mem.uid, system=True,
                                         home_dir=os.path.join("/home", crsid),
                                         real_name=mem.name)).value
@@ -31,19 +31,19 @@ def create_member(crsid: str, preferred_name: str, surname: str, email: str,
     results.extend(bespoke.update_nis(True),
                    unix.create_home(user, os.path.join("/public/home", crsid), True),
                    bespoke.set_home_exim_acl(mem),
-                   bespoke.populate_home_dir(mem))
+                   bespoke.populate_home_dir(mem),
+                   bespoke.update_quotas())
     if mail_handler == "pip":
         results.extend(bespoke.create_forwarding_file(mem))
     # TODO: Legacy mailbox creation
-    results.extend(bespoke.set_quota(mem),
-                   bespoke.set_web_status(mem, "subdomain"),
+    results.extend(bespoke.set_web_status(mem, "subdomain"),
                    bespoke.queue_list_subscription(mem, "maintenance"))
     if social:
         results.extend(bespoke.queue_list_subscription(mem, "social"))
     results.extend(bespoke.generate_apache_groups(),
-                   bespoke.export_members(),
-                   bespoke.update_nis())
+                   bespoke.export_members())
     # TODO: Welcome email
+    results.value = (mem, passwd)
     return results
 
 
@@ -100,14 +100,14 @@ def create_society(name: str, description: str, admins: Set[str],
                                         home_dir=os.path.join("/societies", name),
                                         real_name=description)).value
     group = results.add(unix.create_group(name, gid=soc.gid, system=True)).value
-    results.add(bespoke.update_nis(True))
-    results.add(unix.create_home(user, os.path.join("/public/societies", name), True))
+    results.extend(bespoke.update_nis(True),
+                   unix.create_home(user, os.path.join("/public/societies", name), True),
+                   bespoke.set_home_exim_acl(soc),
+                   bespoke.update_quotas())
     for admin in admins:
         results.extend(unix.add_to_group(unix.get_user(admin), group),
                        bespoke.link_soc_home_dir(get_member(admin), soc))
-    results.extend(bespoke.set_home_exim_acl(soc),
-                   bespoke.set_quota(soc),
-                   bespoke.set_web_status(soc, "subdomain"),
+    results.extend(bespoke.set_web_status(soc, "subdomain"),
                    bespoke.generate_apache_groups(),
                    bespoke.generate_sudoers(),
                    bespoke.export_members())
@@ -172,7 +172,7 @@ def delete_society(society: Society) -> ResultSet:
     for mlist in bespoke.get_mailman_lists(society):
         mailman.remove_list(mlist)
     # TODO: Unix user/group
-    with bespoke.session() as sess:
+    with bespoke.context() as sess:
         results.extend(bespoke.delete_society(sess, society))
     results.extend(bespoke.export_members())
     return results

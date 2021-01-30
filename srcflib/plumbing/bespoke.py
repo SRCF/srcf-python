@@ -13,7 +13,7 @@ import shutil
 import time
 from typing import Generator, List, Optional, Set
 
-from requests import session, Session as RequestsSession
+from requests import Session as RequestsSession
 
 from sqlalchemy.orm import Session as SQLASession
 from sqlalchemy.orm.exc import NoResultFound
@@ -58,7 +58,7 @@ def get_crontab(owner: Owner) -> Optional[str]:
     return proc.stdout.decode("utf-8") if proc.stdout else None
 
 
-def get_mailman_lists(owner: Owner, sess: RequestsSession = session()) -> List[MailList]:
+def get_mailman_lists(owner: Owner, sess: RequestsSession = RequestsSession()) -> List[MailList]:
     """
     Query mailing lists owned by the given member or society.
     """
@@ -203,7 +203,7 @@ def link_soc_home_dir(member: Member, society: Society) -> Result:
     return result
 
 
-def set_home_exim_acl(owner: Owner) -> ResultSet:
+def set_home_exim_acl(owner: Owner) -> Result:
     """
     Grant access to the user's ``.forward`` file for Exim.
     """
@@ -226,11 +226,12 @@ def create_forwarding_file(owner: Owner) -> Result:
     return Result(State.success)
 
 
-def set_quota(owner: Owner) -> Result:
+def update_quotas() -> Result:
     """
-    Apply the default quota to the owner's account.
+    Apply quotas from member and society limits to the filesystem.
     """
-    command(["/usr/local/sbin/set_quota", owner_name(owner)])
+    # TODO: Port to SRCFLib, replace with entrypoint.
+    command(["/usr/local/sbin/srcf-update-quotas"])
     return Result(State.success)
 
 
