@@ -927,17 +927,8 @@ class ChangeSocietyAdmin(SocietyJob):
         if not self.target_member.user:
             raise JobFailed("{0.target_member.crsid} is not a SRCF user".format(self))
 
-        self.society.admins.add(self.target_member)
-
-        subproc_call(self, "Add user to group", ["adduser", self.target_member.crsid, self.society.society])
-
-        target_ln = "/home/{0.target_member.crsid}/{0.society.society}".format(self)
-        source_ln = "/societies/{0.society.society}/".format(self)
-        if not os.path.exists(target_ln):
-            self.log("Create society home symlink")
-            os.symlink(source_ln, target_ln)
-
-        update_nis(self)
+        self.log("Add admin")
+        membership.add_society_admin(self.target_member, self.society)
 
         self.log("Send confirmation to new member")
         mail_users(self.target_member, "Access granted to " + self.society_society, "add-admin", society=self.society)
@@ -953,16 +944,8 @@ class ChangeSocietyAdmin(SocietyJob):
         if len(self.society.admins) == 1:
             raise JobFailed("Removing all admins not implemented")
 
-        self.society.admins.remove(self.target_member)
-        subproc_call(self, "Remove user from group", ["deluser", self.target_member.crsid, self.society.society])
-
-        target_ln = "/home/{0.target_member.crsid}/{0.society.society}".format(self)
-        source_ln = "/societies/{0.society.society}/".format(self)
-        if os.path.islink(target_ln) and os.path.samefile(target_ln, source_ln):
-            self.log("Remove society home symlink")
-            os.remove(target_ln)
-
-        update_nis(self)
+        self.log("Remove admin")
+        membership.remove_society_admin(self.target_member, self.society)
 
         self.log("Send confirmation to remaining admins")
         adminNames = sorted("{0.name} ({0.crsid})".format(m) for m in self.society.admins)
