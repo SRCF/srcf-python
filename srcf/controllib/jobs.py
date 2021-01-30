@@ -315,68 +315,10 @@ class Signup(Job):
         if queries.list_members().get(crsid):
             raise JobFailed(crsid + " is already a user")
 
-        name = (self.preferred_name + " " + self.surname).strip()
-
-        self.log("Create memberdb entry")
-        member = Member(crsid=self.crsid,
-                        preferred_name=self.preferred_name,
-                        surname=self.surname,
-                        email=self.email,
-                        mail_handler=self.mail_handler,
-                        member=True,
-                        user=True)
-        sess.add(member)
-        sess.commit()
-
-        uid = member.uid
-        gid = member.gid
-
-        home_path = os.path.join("/home", crsid)
-        public_path = os.path.join("/public", "home", crsid)
-
-        # NB: adduser --uid will implicitly use gid=uid; --gid does not do what we want (bypasses group creation)
-        # NB: adduser --system doesn't call adduser.local (we do all the work here)
-        subproc_call(self, "Add UNIX user (uid %d)" % uid, ["adduser", "--no-create-home", "--disabled-password",
-                                                            "--system", "--uid", str(uid), "--group",
-                                                            "--shell", "/bin/bash", "--gecos", name, crsid])
-
-        password = make_pwd()
-        chpasswd_data = ("%s:%s" % (crsid, password)).encode("ascii")
-        subproc_call(self, "Set password", ["chpasswd"], stdin=chpasswd_data)
-
-        update_nis(self, wait_netapp=True)
-
-        self.log("Create home and public directories")
-        for path, perm in ((home_path, 0o2770), (public_path, 0o2775)):
-            os.mkdir(path)
-            os.chmod(path, perm)
-            utils.nfs_aware_chown(path, uid, gid)
-
-        subproc_call(self, "Set ACL on home directory", ["/usr/bin/nfs4_setfacl", "-a", "A::Debian-exim@srcf.net:RX", home_path])
-
-        self.log("Populate home directory from /etc/skel")
-        utils.copytree_chown_chmod("/etc/skel", home_path, uid, gid)
-
-        make_public_dir(self, "home", crsid, "public_html", uid, gid)
-
-        subproc_call(self, "Update quotas", ["/usr/local/sbin/srcf-update-quotas", crsid])
-
-        if self.mail_handler == "pip":
-            self.log("Create default .forward file")
-            path = "/home/" + crsid + "/.forward"
-            f = open(path, "w")
-            f.write(self.email + "\n")
-            f.close()
-
-            self.log("Set correct permissions on .forward file")
-            os.chown(path, uid, gid)
-
-        subproc_call(self, "Update Apache groups", ["/usr/local/sbin/srcf-updateapachegroups"])
-        ml_entry = '"{name}" <{email}>'.format(name=name, email=self.email)
-        subproc_call(self, "Queue mail subscriptions", ["/usr/local/sbin/srcf-enqueue-mlsub",
-                                                        "soc-srcf-maintenance:" + ml_entry,
-                                                        ("soc-srcf-social:" + ml_entry) if self.social else ""])
-        subproc_call(self, "Export memberdb", ["/usr/local/sbin/srcf-memberdb-export"])
+        self.log("Create member")
+        result = membership.create_member(crsid, self.preferred_name, self.surname, self.email,
+                                          self.mail_handler, social=self.social)
+        member, password = result.value
 
         self.log("Create legacy mailbox")
         send_mail((False, "real-%s@srcf.net" % crsid), "Welcome to your SRCF inbox",
@@ -762,55 +704,11 @@ class CreateSociety(SocietyJob):
     admin_crsids = property(lambda s: s.row.args["admins"].split(","))
 
     def run(self, sess):
-        self.log("Create memberdb entry")
-        soc = Society(society=self.society_society,
-                      description=self.description,
-                      admins=find_admins(self.admin_crsids, sess))
-        sess.add(soc)
-        sess.commit()
-
-        uid = soc.uid
-        gid = soc.gid
-
-        subproc_call(self, "Add group (gid %d)" % gid, ["/usr/sbin/addgroup", "--gid", str(gid),
-                                                        "--force-badname", self.society_society])
-
-        home_path = os.path.join("/societies", self.society_society)
-        public_path = os.path.join("/public", "societies", self.society_society)
-
-        for admin in self.admin_crsids:
-            subproc_call(self, "Add user {0} to group".format(admin), ["/usr/sbin/adduser", admin, self.society_society])
-
-            self.log("Create society home symlink for {0}".format(admin))
-            try:
-                os.symlink(home_path, os.path.join("/home", admin, self.society_society))
-            except Exception:
-                pass
-
-        subproc_call(self, "Add society user (uid %d)" % uid, ["/usr/sbin/adduser", "--force-badname", "--no-create-home",
-                                                               "--uid", str(uid), "--gid", str(gid), "--gecos", self.description,
-                                                               "--disabled-password", "--system", self.society_society])
-        subproc_call(self, "Set home directory", ["/usr/sbin/usermod", "-d", home_path, self.society_society])
-
-        update_nis(self, wait_netapp=True)
-
-        self.log("Create home and public directories")
-        for path, perm in ((home_path, 0o2770), (public_path, 0o2775)):
-            os.mkdir(path)
-            os.chmod(path, perm)
-            utils.nfs_aware_chown(path, uid, gid)
-
-        subproc_call(self, "Set ACL on home directory", ["/usr/bin/nfs4_setfacl", "-a", "A::Debian-exim@srcf.net:RX", home_path])
-
-        for name in ("public_html", "cgi-bin"):
-            make_public_dir(self, "societies", self.society_society, name, uid, gid)
-
-        subproc_call(self, "Update quotas", ["/usr/local/sbin/srcf-update-quotas", self.society_society])
-        subproc_call(self, "Generate sudoers", ["/usr/local/sbin/srcf-generate-society-sudoers"])
-        subproc_call(self, "Export memberdb", ["/usr/local/sbin/srcf-memberdb-export"])
+        self.log("Create society")
+        result = membership.create_society(self.society_society, self.description, self.admin_crsids)
+        newsoc = result.value
 
         self.log("Send welcome email")
-        newsoc = queries.get_society(self.society_society)
         mail_users(newsoc, "New shared account created", "signup")
 
     def __repr__(self): return "<CreateSociety {0.society_society}>".format(self)
