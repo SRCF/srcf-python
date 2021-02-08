@@ -219,6 +219,9 @@ class Job(object):
     def visible_to(self, crsid):
         return self.owner_crsid and self.owner_crsid == crsid
 
+    owner_has_danger = property(lambda s: s.owner and s.owner.danger)
+    has_danger = property(lambda s: s.owner_has_danger)
+
     @classmethod
     def create(cls, owner, args, require_approval):
         return cls(database.Job(
@@ -260,6 +263,9 @@ class Job(object):
 
 class SocietyJob(Job):
     society_society = property(lambda s: s.row.args["society"])
+
+    society_has_danger = property(lambda s: s.society and s.society.danger)
+    has_danger = property(lambda s: s.owner_has_danger or s.society_has_danger)
 
     def resolve_references(self, sess):
         super(SocietyJob, self).resolve_references(sess)
