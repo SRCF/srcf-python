@@ -1,1 +1,1 @@
-The description for the {{ target.society }} group account has now been changed from "{{ old_description }}" to "{{ new_description }}".
+This is just to confirm that the description of the {{ target.society }} group account (previously "{{ old_description }}") has now been updated in our records.
