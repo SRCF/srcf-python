@@ -515,10 +515,10 @@ class UpdateName(Job):
     def run(self, sess):
         old_name = self.owner.name
         self.log("Update name")
-        membership.update_member_name(self.owner, self.preferred_name, self.surname)
+        member = membership.update_member_name(self.owner, self.preferred_name, self.surname).value
 
         self.log("Send confirmation")
-        mail_users(self.owner, "Name updated", "name", old_name=old_name, new_name=self.name)
+        mail_users(member, "Name updated", "name", old_name=old_name, new_name=self.name)
 
 
 @add_job
@@ -872,10 +872,10 @@ class UpdateSocietyDescription(SocietyJob):
     def run(self, sess):
         old_description = self.society.description
         self.log("Update description")
-        membership.update_society_description(self.society, self.description)
+        society = membership.update_society_description(self.society, self.description).value
 
         self.log("Send confirmation")
-        mail_users(self.society, "Description updated", "description",
+        mail_users(society, "Description updated", "description",
                    old_description=old_description, new_description=self.description)
 
 

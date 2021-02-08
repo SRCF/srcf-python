@@ -68,7 +68,7 @@ def create_sysadmin(member: Member) -> ResultSet:
     return results
 
 
-def update_member_name(member: Member, preferred_name: str, surname: str) -> ResultSet:
+def update_member_name(member: Member, preferred_name: str, surname: str) -> ResultSet[Member]:
     """
     Update a member's registered name.
     """
@@ -80,7 +80,7 @@ def update_member_name(member: Member, preferred_name: str, surname: str) -> Res
                                                    email=member.email,
                                                    mail_handler=member.mail_handler,
                                                    is_member=member.member,
-                                                   is_user=member.user)).value
+                                                   is_user=member.user), True).value
     pwd_info = unix.get_user(member.crsid)
     results.extend(unix.set_real_name(pwd_info, member.name),
                    bespoke.update_nis())
@@ -178,7 +178,7 @@ def delete_society(society: Society) -> ResultSet:
     return results
 
 
-def update_society_description(society: Society, description: str) -> ResultSet:
+def update_society_description(society: Society, description: str) -> ResultSet[Society]:
     """
     Update a society's description ('full name').
     """
@@ -187,7 +187,7 @@ def update_society_description(society: Society, description: str) -> ResultSet:
         society = results.add(bespoke.create_society(sess=sess, name=society.society,
                                                      description=description,
                                                      admins=society.admin_crsids,
-                                                     role_email=society.role_email)).value
+                                                     role_email=society.role_email), True).value
     pwd_info = unix.get_user(society.society)
     results.extend(unix.set_real_name(pwd_info, description),
                    bespoke.update_nis())
