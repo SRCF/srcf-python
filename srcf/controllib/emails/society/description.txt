@@ -1,1 +1,0 @@
-This is just to confirm that the description of the {{ target.society }} group account (previously "{{ old_description }}") has now been updated in our records.

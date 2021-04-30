@@ -1,5 +1,0 @@
-{{ removed.name }} ({{ removed.crsid }}) no longer has access to the '{{ target.society }}' shared account, at the request of {{ requester.name }} ({{ requester.crsid }}).
-
-The complete list of administrators is as follows:
-
-{{ admins }}

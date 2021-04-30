@@ -1,5 +1,0 @@
-Hello and welcome to your 'legacy' SRCF inbox!
-
-By default, any e-mail sent to {{target.crsid}}@srcf.net is automatically forwarded to the email address you have given us, or to the SRCF Hades email service; mail will not be delivered here unless you enable use of legacy mailboxes at https://control.srcf.net/member/srcf-email .
-
-If you would like any assistance, please contact the SRCF support team: support@srcf.net.

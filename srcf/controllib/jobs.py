@@ -315,17 +315,8 @@ class Signup(Job):
         if queries.list_members().get(crsid):
             raise JobFailed(crsid + " is already a user")
 
-        self.log("Create member")
-        result = membership.create_member(crsid, self.preferred_name, self.surname, self.email,
-                                          self.mail_handler, social=self.social)
-        member, password = result.value
-
-        self.log("Create legacy mailbox")
-        send_mail((False, "real-%s@srcf.net" % crsid), "Welcome to your SRCF inbox",
-                  render_email(member, "mailbox-placeholder"), copy_sysadmins=False)
-
-        self.log("Send welcome email")
-        mail_users(member, "Your SRCF account", "signup", password=password)
+        srcflib_call(self, "Create member", membership.create_member,
+                     crsid, self.preferred_name, self.surname, self.email, self.mail_handler, social=self.social)
 
     def __repr__(self): return "<Signup {0.crsid}>".format(self)
     def __str__(self): return "Signup: {0.crsid} ({0.preferred_name} {0.surname}, {0.email}, {0.mail_handler} mail)".format(self)
@@ -428,11 +419,7 @@ class UpdateName(Job):
     def __str__(self): return "Update name: {0.owner.crsid} ({0.name})".format(self)
 
     def run(self, sess):
-        old_name = self.owner.name
-        member = srcflib_call(self, "Update name", membership.update_member_name, self.owner, self.preferred_name, self.surname)
-
-        self.log("Send confirmation")
-        mail_users(member, "Name updated", "name", old_name=old_name, new_name=self.name)
+        srcflib_call(self, "Update name", membership.update_member_name, self.owner, self.preferred_name, self.surname)
 
 
 @add_job
@@ -525,10 +512,7 @@ class CreateUserMailingList(Job):
                                                 "owner", "request", "subscribe", "unsubscribe")):
             raise JobFailed("Invalid list suffix {}".format(self.listname))
 
-        full_listname, password = srcflib_call(self, "Create list", mailman.create_list, self.owner, self.listname)
-
-        self.log("Send password")
-        mail_users(self.owner, "Mailing list created", "list-create", listname=full_listname, password=password)
+        srcflib_call(self, "Create list", mailman.create_list, self.owner, self.listname)
 
 
 @add_job
@@ -558,10 +542,7 @@ class ResetUserMailingListPassword(Job):
             mlist = None
         assert owner == self.owner.crsid
 
-        password = srcflib_call(self, "Reset owner and password", mailman.reset_owner_password, self.owner, mlist)
-
-        self.log("Send new password")
-        mail_users(self.owner, "Mailing list password reset", "list-password", listname=self.listname, password=password)
+        srcflib_call(self, "Reset owner and password", mailman.reset_owner_password, self.owner, mlist)
 
 
 @add_job
@@ -704,12 +685,8 @@ class CreateSociety(SocietyJob):
     admin_crsids = property(lambda s: s.row.args["admins"].split(","))
 
     def run(self, sess):
-        self.log("Create society")
-        result = membership.create_society(self.society_society, self.description, self.admin_crsids)
-        newsoc = result.value
-
-        self.log("Send welcome email")
-        mail_users(newsoc, "New shared account created", "signup")
+        srcflib_call(self, "Create society", membership.create_society,
+                     self.society_society, self.description, self.admin_crsids)
 
     def __repr__(self): return "<CreateSociety {0.society_society}>".format(self)
     def __str__(self): return "Create society: {0.society_society} ({0.description})".format(self)
@@ -737,12 +714,7 @@ class UpdateSocietyDescription(SocietyJob):
     def __str__(self): return "Update society description: {0.society_society} ({0.description})".format(self)
 
     def run(self, sess):
-        old_description = self.society.description
-        society = srcflib_call(self, "Update description", membership.update_society_description, self.society, self.description)
-
-        self.log("Send confirmation")
-        mail_users(society, "Description updated", "description",
-                   old_description=old_description, new_description=self.description)
+        srcflib_call(self, "Update description", membership.update_society_description, self.society, self.description)
 
 
 @add_job
@@ -825,15 +797,7 @@ class ChangeSocietyAdmin(SocietyJob):
         if not self.target_member.user:
             raise JobFailed("{0.target_member.crsid} is not a SRCF user".format(self))
 
-        self.log("Add admin")
-        membership.add_society_admin(self.target_member, self.society)
-
-        self.log("Send confirmation to new member")
-        mail_users(self.target_member, "Access granted to " + self.society_society, "add-admin", society=self.society)
-        self.log("Send confirmation to the rest")
-        adminNames = sorted("{0.name} ({0.crsid})".format(m) for m in self.society.admins)
-        mail_users(self.society, "Access granted for " + self.target_member.crsid, "add-admin",
-                   added=self.target_member, requester=self.owner, admins="\n".join(adminNames))
+        srcflib_call(self, "Add admin", membership.add_society_admin, self.target_member, self.society)
 
     def rm_admin(self, sess):
         if self.target_member not in self.society.admins:
@@ -842,15 +806,7 @@ class ChangeSocietyAdmin(SocietyJob):
         if len(self.society.admins) == 1:
             raise JobFailed("Removing all admins not implemented")
 
-        self.log("Remove admin")
-        membership.remove_society_admin(self.target_member, self.society)
-
-        self.log("Send confirmation to remaining admins")
-        adminNames = sorted("{0.name} ({0.crsid})".format(m) for m in self.society.admins)
-        mail_users(self.society, "Access removed for " + self.target_member.crsid, "remove-admin",
-                   removed=self.target_member, requester=self.owner, admins="\n".join(adminNames))
-        self.log("Send confirmation to removed member")
-        mail_users(self.target_member, "Access removed from " + self.society_society, "remove-admin", society=self.society)
+        srcflib_call(self, "Remove admin", membership.remove_society_admin, self.target_member, self.society)
 
     def run(self, sess):
         if self.owner not in self.society.admins:
@@ -890,10 +846,7 @@ class CreateSocietyMailingList(SocietyJob):
                                                 "owner", "request", "subscribe", "unsubscribe")):
             raise JobFailed("Invalid list suffix {}".format(self.listname))
 
-        full_listname, password = srcflib_call(self, "Create list", mailman.create_list, self.society, self.listname)
-
-        self.log("Send password")
-        mail_users(self.society, "Mailing list created", "list-create", listname=full_listname, password=password, requester=self.owner)
+        srcflib_call(self, "Create list", mailman.create_list, self.society, self.listname)
 
 
 @add_job
@@ -926,10 +879,7 @@ class ResetSocietyMailingListPassword(SocietyJob):
             mlist = None
         assert owner == self.society.society
 
-        password = srcflib_call(self, "Reset owner and password", mailman.reset_owner_password, self.society, mlist)
-
-        self.log("Send new password")
-        mail_users(self.society, "Mailing list password reset", "list-password", listname=self.listname, password=password, requester=self.owner)
+        srcflib_call(self, "Reset owner and password", mailman.reset_owner_password, self.society, mlist)
 
 
 @add_job
@@ -949,12 +899,7 @@ class CreateMySQLUserDatabase(Job):
         assert crsid.isalnum()
 
         with mysql_context() as cursor:
-            self.log("Create account and database")
-            result = mysql.create_account(cursor, self.owner)
-
-        self.log("Send password")
-        password, _ = result.value
-        mail_users(self.owner, "MySQL database created", "mysql-create", password=password)
+            srcflib_call(self, "Create account and database", mysql.create_account, cursor, self.owner)
 
     def __repr__(self): return "<CreateMySQLUserDatabase {0.owner_crsid}>".format(self)
     def __str__(self): return "Create user MySQL database: {0.owner.crsid} ({0.owner.name})".format(self)
@@ -979,11 +924,7 @@ class ResetMySQLUserPassword(Job):
         assert crsid.isalnum()
 
         with mysql_context() as cursor:
-            self.log("Reset password")
-            result = mysql.reset_password(cursor, self.owner)
-
-        self.log("Send new password")
-        mail_users(self.owner, "MySQL database password reset", "mysql-password", password=result.value)
+            srcflib_call(self, "Reset password", mysql.reset_password, cursor, self.owner)
 
     def __repr__(self): return "<ResetMySQLUserPassword {0.owner_crsid}>".format(self)
     def __str__(self): return "Reset user MySQL password: {0.owner.crsid} ({0.owner.name})".format(self)
@@ -1009,17 +950,8 @@ class CreateMySQLSocietyDatabase(SocietyJob):
         assert utils.is_valid_socname(socname)
 
         with mysql_context() as cursor:
-            self.log("Create owner account and database")
-            result_user = mysql.create_account(cursor, self.owner)
-            self.log("Create society account and database")
-            result_soc = mysql.create_account(cursor, self.society)
-
-        self.log("Send society password")
-        mail_users(self.society, "MySQL database created", "mysql-create", password=result_soc.value, requester=self.owner)
-
-        if result_user.value:
-            self.log("Send owner password")
-            mail_users(self.owner, "MySQL account created", "mysql-account", password=result_user.value, database=self.society)
+            srcflib_call(self, "Create owner account and database", mysql.create_account, cursor, self.owner)
+            srcflib_call(self, "Create society account and database", mysql.create_account, cursor, self.society)
 
     def __repr__(self): return "<CreateMySQLSocietyDatabase {0.society_society}>".format(self)
     def __str__(self): return "Create society MySQL database: {0.society_society}".format(self)
@@ -1045,11 +977,7 @@ class ResetMySQLSocietyPassword(SocietyJob):
         assert utils.is_valid_socname(socname)
 
         with mysql_context() as cursor:
-            self.log("Reset password")
-            result = mysql.reset_password(cursor, self.society)
-
-        self.log("Send new password")
-        mail_users(self.society, "MySQL database password reset", "mysql-password", password=result.value, requester=self.owner)
+            srcflib_call(self, "Reset password", mysql.reset_password, cursor, self.society)
 
     def __repr__(self): return "<ResetMySQLSocietyPassword {0.society_society}>".format(self)
     def __str__(self): return "Reset society MySQL password: {0.society_society}".format(self)
@@ -1072,12 +1000,7 @@ class CreatePostgresUserDatabase(Job):
         assert crsid.isalnum()
 
         with pgsql_context() as cursor:
-            self.log("Create account and database")
-            result = pgsql.create_account(cursor, self.owner)
-
-        self.log("Send password")
-        password, _ = result.value
-        mail_users(self.owner, "PostgreSQL database created", "postgres-create", password=password)
+            srcflib_call(self, "Create account and database", pgsql.create_account, cursor, self.owner)
 
     def __repr__(self): return "<CreatePostgresUserDatabase {0.owner_crsid}>".format(self)
     def __str__(self): return "Create user PostgreSQL database: {0.owner.crsid} ({0.owner.name})".format(self)
@@ -1102,11 +1025,7 @@ class ResetPostgresUserPassword(Job):
         assert crsid.isalnum()
 
         with pgsql_context() as cursor:
-            self.log("Reset password")
-            result = pgsql.reset_password(cursor, self.owner)
-
-        self.log("Send new password")
-        mail_users(self.owner, "PostgreSQL database password reset", "postgres-password", password=result.value)
+            srcflib_call(self, "Reset password", pgsql.reset_password, cursor, self.owner)
 
     def __repr__(self): return "<ResetPostgresUserPassword {0.owner_crsid}>".format(self)
     def __str__(self): return "Reset user PostgreSQL password: {0.owner.crsid} ({0.owner.name})".format(self)
@@ -1132,17 +1051,8 @@ class CreatePostgresSocietyDatabase(SocietyJob):
         assert utils.is_valid_socname(socname)
 
         with pgsql_context() as cursor:
-            self.log("Create owner account and database")
-            result_user = pgsql.create_account(cursor, self.owner)
-            self.log("Create society account and database")
-            result_soc = pgsql.create_account(cursor, self.society)
-
-        self.log("Send society password")
-        mail_users(self.society, "PostgreSQL database created", "postgres-create", password=result_soc.value, requester=self.owner)
-
-        if result_user.value:
-            self.log("Send owner password")
-            mail_users(self.owner, "PostgreSQL account created", "postgres-account", password=result_user.value, database=self.society)
+            srcflib_call(self, "Create owner account and database", pgsql.create_account, cursor, self.owner)
+            srcflib_call(self, "Create society account and database", pgsql.create_account, cursor, self.society)
 
     def __repr__(self): return "<CreatePostgresSocietyDatabase {0.society_society}>".format(self)
     def __str__(self): return "Create society PostgreSQL database: {0.society_society}".format(self)
@@ -1168,11 +1078,7 @@ class ResetPostgresSocietyPassword(SocietyJob):
         assert utils.is_valid_socname(socname)
 
         with pgsql_context() as cursor:
-            self.log("Reset password")
-            result = pgsql.reset_password(cursor, self.society)
-
-        self.log("Send new password")
-        mail_users(self.society, "PostgreSQL database password reset", "postgres-password", password=result.value, requester=self.owner)
+            srcflib_call(self, "Reset password", pgsql.reset_password, cursor, self.society)
 
     def __repr__(self): return "<ResetPostgresSocietyPassword {0.society_society}>".format(self)
     def __str__(self): return "Reset society PostgreSQL password: {0.society_society}".format(self)

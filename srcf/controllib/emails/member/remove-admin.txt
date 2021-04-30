@@ -1,3 +1,0 @@
-You have been removed from the '{{ society.society }}' shared account on the SRCF.
-
-If you believe this to be incorrect, please email sysadmins@srcf.net.
