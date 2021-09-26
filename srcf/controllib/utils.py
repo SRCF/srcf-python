@@ -28,6 +28,8 @@ def ldapsearch(crsid):
 
 
 def is_admin(member):
+    if member is None:
+        return False
     for soc in member.societies:
         if soc.society == "srcf-admin":
             return True
