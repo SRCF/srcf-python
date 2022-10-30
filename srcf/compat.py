@@ -36,7 +36,7 @@ def get_users(crsids=None):
                       DeprecationWarning)
         return (queries._sess().query(Member)
                        .filter(Member.crsid.in_(crsids))
-                       .filter(Member.user == True))
+                       .filter(Member.user))
 
 
 def get_user(crsid):

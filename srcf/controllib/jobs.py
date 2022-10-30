@@ -10,7 +10,7 @@ from jinja2 import Environment, FileSystemLoader
 
 from srcf import database, pwgen
 from srcf.database import schema, queries, Job as db_Job
-from srcf.database.schema import Member, MailHandler, Society, Domain
+from srcf.database.schema import Member, MailHandler, Domain
 from srcf.mail import send_mail
 
 from srcflib.tasks import mailman, membership, mysql, pgsql
@@ -746,9 +746,9 @@ class UpdateSocietyRoleEmail(SocietyJob):
             "email": email
         }
         require_approval = (
-            requesting_member.danger or
-            society.danger or
-            (email and email.endswith(("@cam.ac.uk", "@hermes.cam.ac.uk")))
+            requesting_member.danger
+            or society.danger
+            or (email and email.endswith(("@cam.ac.uk", "@hermes.cam.ac.uk")))
         )
         return cls.create(requesting_member, args, require_approval)
 

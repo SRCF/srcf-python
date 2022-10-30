@@ -32,7 +32,7 @@ def complete_member(prefix, **kwargs):
 
         return out.split('\n')
 
-    except StandardError as e:
+    except Exception as e:
         argcomplete_warn("Error: " + e)
         return []
 
@@ -52,7 +52,7 @@ def complete_user(prefix, **kwargs):
         users = (x for x in out.split('\n') if ":user:" in x)
         return (x.split(':')[0] for x in users)
 
-    except StandardError as e:
+    except Exception as e:
         argcomplete_warn("Error: " + e)
         return []
 
@@ -71,7 +71,7 @@ def complete_soc(prefix, **kwargs):
 
         return out.split('\n')
 
-    except StandardError as e:
+    except Exception as e:
         argcomplete_warn("Error: " + e)
         return []
 
@@ -92,7 +92,7 @@ def complete_activesoc(prefix, **kwargs):
         active_socs = (x for x in out.split('\n') if "::" not in x)
         return (x.split(':')[0] for x in active_socs)
 
-    except StandardError as e:
+    except Exception as e:
         argcomplete_warn("Error: " + e)
         return []
 
@@ -119,7 +119,7 @@ def complete_socadmin(prefix, parsed_args, **kwargs):
         admins = socline.split(':')[2].split(',')
         return (x for x in admins if x.startswith(prefix))
 
-    except StandardError as e:
+    except Exception as e:
         argcomplete_warn("Error: " + e)
         return []
 

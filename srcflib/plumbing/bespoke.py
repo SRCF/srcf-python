@@ -343,9 +343,9 @@ def scrub_member_jobs(sess: SQLASession, owner: Owner) -> Result[Unset]:
     state = State.unchanged
     query = sess.query(Job)
     if isinstance(owner, Member):
-        query = query.filter((Job.owner_crsid == owner.crsid) |
-                             ((Job.type == jobs.Signup.JOB_TYPE) &
-                              (Job.args.contains({"crsid": owner.crsid}))))
+        query = query.filter((Job.owner_crsid == owner.crsid)
+                             | ((Job.type == jobs.Signup.JOB_TYPE)
+                                & (Job.args.contains({"crsid": owner.crsid}))))
     elif isinstance(owner, Society):
         query = query.filter(Job.args.contains({"society": owner.society}))
     else:

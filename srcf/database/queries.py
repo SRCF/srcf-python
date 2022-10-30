@@ -54,7 +54,7 @@ def list_members(session=None, include_non_members=False):
         if include_non_members:
             return query
         else:
-            return query.filter(Member.member == True)
+            return query.filter(Member.member)
 
 
 def get_member(crsid, session=None, include_non_members=False):
@@ -70,7 +70,7 @@ def get_member(crsid, session=None, include_non_members=False):
 
 def list_users(session=None):
     with _sess(session) as sess:
-        return sess.query(Member).filter(Member.user == True)
+        return sess.query(Member).filter(Member.user)
 
 
 def get_user(crsid, session=None):

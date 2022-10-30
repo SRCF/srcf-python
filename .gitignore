@@ -1,4 +1,6 @@
 __pycache__/
+/.coverage
+/.mypy_cache/
 .pybuild/
 build/
 deb_dist/
@@ -10,3 +12,5 @@ dist/
 html/
 srcf.egg-info/
 *.swp
+/venv/
+/venv2/

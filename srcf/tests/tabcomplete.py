@@ -5,7 +5,7 @@ from __future__ import print_function
 
 import argcomplete
 import argparse
-from srcf import *
+from srcf import complete_activesoc, complete_socadmin, complete_user
 
 # Somewhat manual - try swapping different complete_$FOO functions below
 parser = argparse.ArgumentParser()
