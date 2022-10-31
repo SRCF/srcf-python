@@ -43,8 +43,8 @@ def get_owned_databases(cursor: Cursor, owner: Owner) -> List[str]:
     """
     Find all MySQL databases belonging to a given owner.
     """
-    return (mysql.get_matched_databases(cursor, _database_name(owner))
-            + mysql.get_matched_databases(cursor, _database_name(owner, "%")))
+    return (mysql.get_matched_databases(cursor, _database_name(owner)) +
+            mysql.get_matched_databases(cursor, _database_name(owner, "%")))
 
 
 @Result.collect_value

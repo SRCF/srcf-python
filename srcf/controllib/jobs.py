@@ -521,8 +521,8 @@ class CreateUserMailingList(Job):
 
     def run(self, sess):
         self.log("Sanity check list name")
-        if (not re.match(r"^[A-Za-z0-9\-]+$", self.listname)
-            or self.listname.split("-")[-1] in ("admins", "admin", "bounces", "confirm", "join", "leave",
+        if (not re.match(r"^[A-Za-z0-9\-]+$", self.listname) or
+            self.listname.split("-")[-1] in ("admins", "admin", "bounces", "confirm", "join", "leave",
                                                 "owner", "request", "subscribe", "unsubscribe")):
             raise JobFailed("Invalid list suffix {}".format(self.listname))
 
@@ -746,9 +746,9 @@ class UpdateSocietyRoleEmail(SocietyJob):
             "email": email
         }
         require_approval = (
-            requesting_member.danger
-            or society.danger
-            or (email and email.endswith(("@cam.ac.uk", "@hermes.cam.ac.uk")))
+            requesting_member.danger or
+            society.danger or
+            (email and email.endswith(("@cam.ac.uk", "@hermes.cam.ac.uk")))
         )
         return cls.create(requesting_member, args, require_approval)
 
@@ -787,12 +787,12 @@ class ChangeSocietyAdmin(SocietyJob):
             "action": action
         }
         require_approval = (
-            society.danger
-            or target_member.danger
-            or requesting_member.danger
-            or (action == "remove"
-                and len(society.admin_crsids) == 1
-                and society.role_email))
+            society.danger or
+            target_member.danger or
+            requesting_member.danger or
+            (action == "remove" and
+             len(society.admin_crsids) == 1 and
+             society.role_email))
         return cls.create(requesting_member, args, require_approval)
 
     target_member_crsid = property(lambda s: s.row.args["target_member"])
@@ -854,8 +854,8 @@ class CreateSocietyMailingList(SocietyJob):
 
     def run(self, sess):
         self.log("Sanity check list name")
-        if (not re.match(r"^[A-Za-z0-9\-]+$", self.listname)
-            or self.listname.split("-")[-1] in ("admins", "admin", "bounces", "confirm", "join", "leave",
+        if (not re.match(r"^[A-Za-z0-9\-]+$", self.listname) or
+            self.listname.split("-")[-1] in ("admins", "admin", "bounces", "confirm", "join", "leave",
                                                 "owner", "request", "subscribe", "unsubscribe")):
             raise JobFailed("Invalid list suffix {}".format(self.listname))
 

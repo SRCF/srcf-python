@@ -28,14 +28,14 @@ def summarise_member(member):
                     'UID: %s' % member.uid,
                     'GID: %s' % member.gid,
                     'Disk quota: %s/%s GB (updated: %s)' % (member.disk_usage_gb, member.disk_quota_gb, member.disk_usage_updated),
-                    'Danger: %s' % member.danger]
-                   + _format_notes(member.notes)
-                   + _format_domains(member.domains))
+                    'Danger: %s' % member.danger] +
+                   _format_notes(member.notes) +
+                   _format_domains(member.domains))
 
     lines = (
-        ['%s (%s)' % (member.name or '<no name>', member.crsid)]
-        + private
-        + socs
+        ['%s (%s)' % (member.name or '<no name>', member.crsid)] +
+        private +
+        socs
     )
 
     return "\n".join(lines)
@@ -58,14 +58,14 @@ def summarise_society(society):
                      'UID: %s' % society.uid,
                      'GID: %s' % society.gid,
                      'Disk quota: %s/%s GB (updated: %s)' % (society.disk_usage_gb, society.disk_quota_gb, society.disk_usage_updated),
-                     'Danger: %s' % society.danger]
-                    + _format_notes(society.notes)
-                    + _format_domains(society.domains))
+                     'Danger: %s' % society.danger] +
+                    _format_notes(society.notes) +
+                    _format_domains(society.domains))
 
     lines = (
-        ['%s: %s' % (society.society, society.description)]
-        + private
-        + admins
+        ['%s: %s' % (society.society, society.description)] +
+        private +
+        admins
     )
 
     return "\n".join(lines)
