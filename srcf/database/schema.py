@@ -277,6 +277,11 @@ if is_root or is_webapp:
         def __repr__(self):
             return "<{}: {} ({})>".format(self.__class__.__name__, self.domain, self.name)
 
+        @hybrid_property
+        def provisioned(self):
+            return (self.name != '') and (self.name != None)
+
+
     JobState = SQLAEnum('unapproved', 'queued', 'running', 'done', 'failed', 'withdrawn',
                         name='job_state')
     LogType = SQLAEnum('created', 'started', 'progress', 'output', 'done', 'failed', 'note',
