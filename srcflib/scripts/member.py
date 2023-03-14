@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from srcf.database.schema import Member
 
 from .utils import confirm, entrypoint
+from ..email import send, SYSADMINS
 from ..tasks import membership
 
 

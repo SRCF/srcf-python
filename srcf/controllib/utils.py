@@ -88,11 +88,13 @@ def nfs_aware_chown(path, *args, **kwargs):
                                 ffields = lline.split()
                                 if ffields[1] == server:
                                     hostname = ffields[4]
-                                    raise Exception("Got EINVAL when attempting to chown(%s) on %s via NFS%s.  "
-                                                    "That might mean that the user or group is unknown to the NFS server.  "
-                                                    "If this seems wrong, it may have cached nonexistence.  "
-                                                    "If it's a NetApp, try 'nfs nsdb flush' on %s, or "
-                                                    "just wait an hour or two then retry." % (path, hostname, ver, hostname))
+                                    raise Exception(
+                                        "Got EINVAL when attempting to chown(%s) on %s via NFS%s.  "
+                                        "That might mean that the user or group is unknown to the NFS server.  "
+                                        "If this seems wrong, it may have cached nonexistence.  "
+                                        "If it's a NetApp, try 'nfs nsdb flush' on %s, or "
+                                        "just wait an hour or two then retry." % (path, hostname, ver, hostname)
+                                    )
         raise
 
 

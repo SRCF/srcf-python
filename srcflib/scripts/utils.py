@@ -59,6 +59,7 @@ def entrypoint(fn: Callable[..., Any]) -> Callable[..., Any]:
     """
     label = "srcflib-{}-{}".format(fn.__module__.rsplit(".", 1)[-1],
                                    fn.__qualname__).replace("_", "-")
+
     @wraps(fn)
     def wrap(opts: Optional[DocOptArgs] = None):
         extra: Dict[str, Any] = {}

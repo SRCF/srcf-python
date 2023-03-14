@@ -56,7 +56,12 @@ def find_admins(admin_crsids, sess):
 
 def subproc_call(job, desc, cmd, stdin=None):
     job.log(desc)
-    pipe = subprocess.Popen(cmd, stdin=(subprocess.PIPE if stdin else None), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    pipe = subprocess.Popen(
+        cmd,
+        stdin=(subprocess.PIPE if stdin else None),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT
+    )
     out, _ = pipe.communicate(stdin)
     if pipe.returncode:
         raise JobFailed(desc, out or None)
@@ -240,9 +245,12 @@ class Job(object):
     state_message = property(lambda s: s.row.state_message)
 
     @state.setter
-    def state(s, n): s.row.state = n
+    def state(s, n):
+        s.row.state = n
+
     @state_message.setter
-    def state_message(s, n): s.row.state_message = n
+    def state_message(s, n):
+        s.row.state_message = n
 
     def transition(self, action, message=None):
         if self.state != action.old_state:
@@ -255,8 +263,11 @@ class Job(object):
         self.state = state
         self.state_message = message
 
-    def __repr__(self): return "<Unknown {0.type}>".format(self)
-    def __str__(self): return "Unknown job type: {0.type}".format(self)
+    def __repr__(self):
+        return "<Unknown {0.type}>".format(self)
+
+    def __str__(self):
+        return "Unknown job type: {0.type}".format(self)
 
 
 class SocietyJob(Job):
@@ -300,8 +311,11 @@ class Test(Job):
     def run(self, sess):
         time.sleep(self.sleep_time)
 
-    def __repr__(self): return "<Test {0.owner.crsid}>".format(self)
-    def __str__(self): return "Test: {0.owner.crsid} {0.sleep_time}".format(self)
+    def __repr__(self):
+        return "<Test {0.owner.crsid}>".format(self)
+
+    def __str__(self):
+        return "Test: {0.owner.crsid} {0.sleep_time}".format(self)
 
 
 @add_job
@@ -338,8 +352,11 @@ class Signup(Job):
                      self.crsid, self.preferred_name, self.surname, self.email,
                      MailHandler[self.mail_handler], social=self.social)
 
-    def __repr__(self): return "<Signup {0.crsid}>".format(self)
-    def __str__(self): return "Signup: {0.crsid} ({0.preferred_name} {0.surname}, {0.email}, {0.mail_handler} mail)".format(self)
+    def __repr__(self):
+        return "<Signup {0.crsid}>".format(self)
+
+    def __str__(self):
+        return "Signup: {0.crsid} ({0.preferred_name} {0.surname}, {0.email}, {0.mail_handler} mail)".format(self)
 
 
 @add_job
@@ -356,8 +373,11 @@ class Reactivate(Job):
 
     email = property(lambda s: s.row.args["email"])
 
-    def __repr__(self): return "<Reactivate {0.owner_crsid}>".format(self)
-    def __str__(self): return "Reactivate user: {0.owner.crsid} ({0.email})".format(self)
+    def __repr__(self):
+        return "<Reactivate {0.owner_crsid}>".format(self)
+
+    def __str__(self):
+        return "Reactivate user: {0.owner.crsid} ({0.email})".format(self)
 
     def run(self, sess):
         crsid = self.owner.crsid
@@ -371,7 +391,8 @@ class Reactivate(Job):
         self.owner.user = True
 
         subproc_call(self, "Re-enable UNIX user", ["/usr/sbin/usermod", "-s", "/bin/bash", "-e", "", crsid])
-        subproc_call(self, "Change UNIX password for {0}".format(crsid), ["/usr/sbin/chpasswd"], (crsid + ":" + password).encode("utf-8"))
+        subproc_call(self, "Change UNIX password for {0}".format(crsid), ["/usr/sbin/chpasswd"],
+                     (crsid + ":" + password).encode("utf-8"))
         update_nis(self)
 
         self.log("Check existing .forward file")
@@ -406,8 +427,11 @@ class ResetUserPassword(Job):
     def run(self, sess):
         srcflib_call(self, "Reset password", membership.reset_password, self.owner)
 
-    def __repr__(self): return "<ResetUserPassword {0.owner_crsid}>".format(self)
-    def __str__(self): return "Reset user password: {0.owner.crsid} ({0.owner.name})".format(self)
+    def __repr__(self):
+        return "<ResetUserPassword {0.owner_crsid}>".format(self)
+
+    def __str__(self):
+        return "Reset user password: {0.owner.crsid} ({0.owner.name})".format(self)
 
 
 @add_job
@@ -428,8 +452,11 @@ class UpdateName(Job):
     surname = property(lambda s: s.row.args["surname"])
     name = property(lambda s: "{} {}".format(s.preferred_name, s.surname))
 
-    def __repr__(self): return "<UpdateName {0.owner_crsid}>".format(self)
-    def __str__(self): return "Update name: {0.owner.crsid} ({0.name})".format(self)
+    def __repr__(self):
+        return "<UpdateName {0.owner_crsid}>".format(self)
+
+    def __str__(self):
+        return "Update name: {0.owner.crsid} ({0.name})".format(self)
 
     def run(self, sess):
         srcflib_call(self, "Update name", membership.update_member_name, sess,
@@ -451,8 +478,11 @@ class UpdateEmailAddress(Job):
 
     email = property(lambda s: s.row.args["email"])
 
-    def __repr__(self): return "<UpdateEmailAddress {0.owner_crsid}>".format(self)
-    def __str__(self): return "Update email address: {0.owner.crsid} ({0.email})".format(self)
+    def __repr__(self):
+        return "<UpdateEmailAddress {0.owner_crsid}>".format(self)
+
+    def __str__(self):
+        return "Update email address: {0.owner.crsid} ({0.email})".format(self)
 
     def run(self, sess):
         old_email = self.owner.email
@@ -493,8 +523,11 @@ class UpdateMailHandler(Job):
 
     mail_handler = property(lambda s: s.row.args["mail_handler"])
 
-    def __repr__(self): return "<UpdateMailHandler {0.owner_crsid}>".format(self)
-    def __str__(self): return "Update email handler: {0.owner.crsid} ({0.mail_handler})".format(self)
+    def __repr__(self):
+        return "<UpdateMailHandler {0.owner_crsid}>".format(self)
+
+    def __str__(self):
+        return "Update email handler: {0.owner.crsid} ({0.mail_handler})".format(self)
 
     def run(self, sess):
         self.log("Update email handler")
@@ -516,8 +549,11 @@ class CreateUserMailingList(Job):
 
     listname = property(lambda s: s.row.args["listname"])
 
-    def __repr__(self): return "<CreateUserMailingList {0.owner_crsid}-{0.listname}>".format(self)
-    def __str__(self): return "Create user mailing list: {0.owner_crsid}-{0.listname}".format(self)
+    def __repr__(self):
+        return "<CreateUserMailingList {0.owner_crsid}-{0.listname}>".format(self)
+
+    def __str__(self):
+        return "Create user mailing list: {0.owner_crsid}-{0.listname}".format(self)
 
     def run(self, sess):
         self.log("Sanity check list name")
@@ -544,8 +580,11 @@ class ResetUserMailingListPassword(Job):
 
     listname = property(lambda s: s.row.args["listname"])
 
-    def __repr__(self): return "<ResetUserMailingListPassword {0.listname}>".format(self)
-    def __str__(self): return "Reset user mailing list password: {0.listname}".format(self)
+    def __repr__(self):
+        return "<ResetUserMailingListPassword {0.listname}>".format(self)
+
+    def __str__(self):
+        return "Reset user mailing list password: {0.listname}".format(self)
 
     def run(self, sess):
         # TODO: allow name input
@@ -579,8 +618,11 @@ class AddUserVhost(Job):
     domain = property(lambda s: s.row.args["domain"])
     root = property(lambda s: s.row.args["root"])
 
-    def __repr__(self): return "<AddUserVhost {0.owner_crsid} {0.domain}>".format(self)
-    def __str__(self): return "Add custom domain: {0.owner.crsid} ({0.domain_text} -> {0.root})".format(self)
+    def __repr__(self):
+        return "<AddUserVhost {0.owner_crsid} {0.domain}>".format(self)
+
+    def __str__(self):
+        return "Add custom domain: {0.owner.crsid} ({0.domain_text} -> {0.root})".format(self)
 
     def run(self, sess):
         self.log("Add domain entry")
@@ -612,8 +654,11 @@ class ChangeUserVhostDocroot(Job):
     domain = property(lambda s: s.row.args["domain"])
     root = property(lambda s: s.row.args["root"])
 
-    def __repr__(self): return "<ChangeUserVhostDocroot {0.owner_crsid} {0.domain}>".format(self)
-    def __str__(self): return "Change custom domain root: {0.owner.crsid} ({0.domain_text} -> {0.root})".format(self)
+    def __repr__(self):
+        return "<ChangeUserVhostDocroot {0.owner_crsid} {0.domain}>".format(self)
+
+    def __str__(self):
+        return "Change custom domain root: {0.owner.crsid} ({0.domain_text} -> {0.root})".format(self)
 
     def run(self, sess):
         self.log("Change domain entry")
@@ -631,7 +676,8 @@ class ChangeUserVhostDocroot(Job):
         sess.add(domain)
 
         self.log("Send confirmation")
-        mail_users(self.owner, "Custom domain document root changed", "change-vhost-docroot", domain=self.domain_text, root=self.root)
+        mail_users(self.owner, "Custom domain document root changed", "change-vhost-docroot",
+                   domain=self.domain_text, root=self.root)
 
 
 @add_job
@@ -650,8 +696,11 @@ class RemoveUserVhost(Job):
 
     domain = property(lambda s: s.row.args["domain"])
 
-    def __repr__(self): return "<RemoveUserVhost {0.owner_crsid} {0.domain}>".format(self)
-    def __str__(self): return "Remove custom domain: {0.owner.crsid} ({0.domain})".format(self)
+    def __repr__(self):
+        return "<RemoveUserVhost {0.owner_crsid} {0.domain}>".format(self)
+
+    def __str__(self):
+        return "Remove custom domain: {0.owner.crsid} ({0.domain})".format(self)
 
     def run(self, sess):
         self.log("Lookup domain entry")
@@ -702,8 +751,11 @@ class CreateSociety(SocietyJob):
         srcflib_call(self, "Create society", membership.create_society, sess,
                      self.society_society, self.description, self.admin_crsids)
 
-    def __repr__(self): return "<CreateSociety {0.society_society}>".format(self)
-    def __str__(self): return "Create society: {0.society_society} ({0.description})".format(self)
+    def __repr__(self):
+        return "<CreateSociety {0.society_society}>".format(self)
+
+    def __str__(self):
+        return "Create society: {0.society_society} ({0.description})".format(self)
 
 
 @add_job
@@ -724,8 +776,11 @@ class UpdateSocietyDescription(SocietyJob):
 
     description = property(lambda s: s.row.args["description"])
 
-    def __repr__(self): return "<UpdateSocietyDescription {0.society_society}>".format(self)
-    def __str__(self): return "Update society description: {0.society_society} ({0.description})".format(self)
+    def __repr__(self):
+        return "<UpdateSocietyDescription {0.society_society}>".format(self)
+
+    def __str__(self):
+        return "Update society description: {0.society_society} ({0.description})".format(self)
 
     def run(self, sess):
         srcflib_call(self, "Update description", membership.update_society_description, sess,
@@ -754,8 +809,11 @@ class UpdateSocietyRoleEmail(SocietyJob):
 
     email = property(lambda s: s.row.args["email"])
 
-    def __repr__(self): return "<UpdateSocietyRoleEmail {0.society_society} {0.email}>".format(self)
-    def __str__(self): return "Update society role email: {0.society_society} ({0.email})".format(self)
+    def __repr__(self):
+        return "<UpdateSocietyRoleEmail {0.society_society} {0.email}>".format(self)
+
+    def __str__(self):
+        return "Update society role email: {0.society_society} ({0.email})".format(self)
 
     def run(self, sess):
         old_email = self.society.role_email
@@ -813,13 +871,15 @@ class ChangeSocietyAdmin(SocietyJob):
         if not self.target_member.user:
             raise JobFailed("{0.target_member.crsid} is not a SRCF user".format(self))
 
-        srcflib_call(self, "Add admin", membership.add_society_admin, sess, self.target_member, self.society, actor=self.owner)
+        srcflib_call(self, "Add admin", membership.add_society_admin, sess,
+                     self.target_member, self.society, actor=self.owner)
 
     def rm_admin(self, sess):
         if len(self.society.admins) == 1:
             raise JobFailed("Removing all admins not implemented")
 
-        srcflib_call(self, "Remove admin", membership.remove_society_admin, sess, self.target_member, self.society, actor=self.owner)
+        srcflib_call(self, "Remove admin", membership.remove_society_admin, sess,
+                     self.target_member, self.society, actor=self.owner)
 
     def run(self, sess):
         if self.owner not in self.society.admins:
@@ -849,8 +909,11 @@ class CreateSocietyMailingList(SocietyJob):
 
     listname = property(lambda s: s.row.args["listname"])
 
-    def __repr__(self): return "<CreateSocietyMailingList {0.society_society}-{0.listname}>".format(self)
-    def __str__(self): return "Create society mailing list: {0.society_society}-{0.listname}".format(self)
+    def __repr__(self):
+        return "<CreateSocietyMailingList {0.society_society}-{0.listname}>".format(self)
+
+    def __str__(self):
+        return "Create society mailing list: {0.society_society}-{0.listname}".format(self)
 
     def run(self, sess):
         self.log("Sanity check list name")
@@ -880,8 +943,11 @@ class ResetSocietyMailingListPassword(SocietyJob):
 
     listname = property(lambda s: s.row.args["listname"])
 
-    def __repr__(self): return "<ResetSocietyMailingListPassword {0.listname}>".format(self)
-    def __str__(self): return "Reset society mailing list password: {0.listname}".format(self)
+    def __repr__(self):
+        return "<ResetSocietyMailingListPassword {0.listname}>".format(self)
+
+    def __str__(self):
+        return "Reset society mailing list password: {0.listname}".format(self)
 
     def run(self, sess):
         # TODO: allow name input
@@ -914,8 +980,11 @@ class CreateMySQLUserDatabase(Job):
         with mysql_context() as cursor:
             srcflib_call(self, "Create account and database", mysql.create_account, cursor, self.owner)
 
-    def __repr__(self): return "<CreateMySQLUserDatabase {0.owner_crsid}>".format(self)
-    def __str__(self): return "Create user MySQL database: {0.owner.crsid} ({0.owner.name})".format(self)
+    def __repr__(self):
+        return "<CreateMySQLUserDatabase {0.owner_crsid}>".format(self)
+
+    def __str__(self):
+        return "Create user MySQL database: {0.owner.crsid} ({0.owner.name})".format(self)
 
 
 @add_job
@@ -939,8 +1008,11 @@ class ResetMySQLUserPassword(Job):
         with mysql_context() as cursor:
             srcflib_call(self, "Reset password", mysql.reset_password, cursor, self.owner)
 
-    def __repr__(self): return "<ResetMySQLUserPassword {0.owner_crsid}>".format(self)
-    def __str__(self): return "Reset user MySQL password: {0.owner.crsid} ({0.owner.name})".format(self)
+    def __repr__(self):
+        return "<ResetMySQLUserPassword {0.owner_crsid}>".format(self)
+
+    def __str__(self):
+        return "Reset user MySQL password: {0.owner.crsid} ({0.owner.name})".format(self)
 
 
 @add_job
@@ -966,8 +1038,11 @@ class CreateMySQLSocietyDatabase(SocietyJob):
             srcflib_call(self, "Create owner account and database", mysql.create_account, cursor, self.owner)
             srcflib_call(self, "Create society account and database", mysql.create_account, cursor, self.society)
 
-    def __repr__(self): return "<CreateMySQLSocietyDatabase {0.society_society}>".format(self)
-    def __str__(self): return "Create society MySQL database: {0.society_society}".format(self)
+    def __repr__(self):
+        return "<CreateMySQLSocietyDatabase {0.society_society}>".format(self)
+
+    def __str__(self):
+        return "Create society MySQL database: {0.society_society}".format(self)
 
 
 @add_job
@@ -992,8 +1067,11 @@ class ResetMySQLSocietyPassword(SocietyJob):
         with mysql_context() as cursor:
             srcflib_call(self, "Reset password", mysql.reset_password, cursor, self.society)
 
-    def __repr__(self): return "<ResetMySQLSocietyPassword {0.society_society}>".format(self)
-    def __str__(self): return "Reset society MySQL password: {0.society_society}".format(self)
+    def __repr__(self):
+        return "<ResetMySQLSocietyPassword {0.society_society}>".format(self)
+
+    def __str__(self):
+        return "Reset society MySQL password: {0.society_society}".format(self)
 
 
 @add_job
@@ -1015,8 +1093,11 @@ class CreatePostgresUserDatabase(Job):
         with pgsql.context() as cursor:
             srcflib_call(self, "Create account and database", pgsql.create_account, cursor, self.owner)
 
-    def __repr__(self): return "<CreatePostgresUserDatabase {0.owner_crsid}>".format(self)
-    def __str__(self): return "Create user PostgreSQL database: {0.owner.crsid} ({0.owner.name})".format(self)
+    def __repr__(self):
+        return "<CreatePostgresUserDatabase {0.owner_crsid}>".format(self)
+
+    def __str__(self):
+        return "Create user PostgreSQL database: {0.owner.crsid} ({0.owner.name})".format(self)
 
 
 @add_job
@@ -1040,8 +1121,11 @@ class ResetPostgresUserPassword(Job):
         with pgsql.context() as cursor:
             srcflib_call(self, "Reset password", pgsql.reset_password, cursor, self.owner)
 
-    def __repr__(self): return "<ResetPostgresUserPassword {0.owner_crsid}>".format(self)
-    def __str__(self): return "Reset user PostgreSQL password: {0.owner.crsid} ({0.owner.name})".format(self)
+    def __repr__(self):
+        return "<ResetPostgresUserPassword {0.owner_crsid}>".format(self)
+
+    def __str__(self):
+        return "Reset user PostgreSQL password: {0.owner.crsid} ({0.owner.name})".format(self)
 
 
 @add_job
@@ -1067,8 +1151,11 @@ class CreatePostgresSocietyDatabase(SocietyJob):
             srcflib_call(self, "Create owner account and database", pgsql.create_account, cursor, self.owner)
             srcflib_call(self, "Create society account and database", pgsql.create_account, cursor, self.society)
 
-    def __repr__(self): return "<CreatePostgresSocietyDatabase {0.society_society}>".format(self)
-    def __str__(self): return "Create society PostgreSQL database: {0.society_society}".format(self)
+    def __repr__(self):
+        return "<CreatePostgresSocietyDatabase {0.society_society}>".format(self)
+
+    def __str__(self):
+        return "Create society PostgreSQL database: {0.society_society}".format(self)
 
 
 @add_job
@@ -1093,8 +1180,11 @@ class ResetPostgresSocietyPassword(SocietyJob):
         with pgsql.context() as cursor:
             srcflib_call(self, "Reset password", pgsql.reset_password, cursor, self.society)
 
-    def __repr__(self): return "<ResetPostgresSocietyPassword {0.society_society}>".format(self)
-    def __str__(self): return "Reset society PostgreSQL password: {0.society_society}".format(self)
+    def __repr__(self):
+        return "<ResetPostgresSocietyPassword {0.society_society}>".format(self)
+
+    def __str__(self):
+        return "Reset society PostgreSQL password: {0.society_society}".format(self)
 
 
 @add_job
@@ -1117,8 +1207,11 @@ class AddSocietyVhost(SocietyJob):
     domain = property(lambda s: s.row.args["domain"])
     root = property(lambda s: s.row.args["root"])
 
-    def __repr__(self): return "<AddSocietyVhost {0.society_society} {0.domain}>".format(self)
-    def __str__(self): return "Add custom society domain: {0.society_society} ({0.domain} -> {0.root})".format(self)
+    def __repr__(self):
+        return "<AddSocietyVhost {0.society_society} {0.domain}>".format(self)
+
+    def __str__(self):
+        return "Add custom society domain: {0.society_society} ({0.domain} -> {0.root})".format(self)
 
     def run(self, sess):
         self.log("Add domain entry")
@@ -1150,8 +1243,11 @@ class ChangeSocietyVhostDocroot(SocietyJob):
     domain = property(lambda s: s.row.args["domain"])
     root = property(lambda s: s.row.args["root"])
 
-    def __repr__(self): return "<ChangeSocietyVhostDocroot {0.society_society} {0.domain}>".format(self)
-    def __str__(self): return "Change custom society domain root: {0.society_society} ({0.domain_text} -> {0.root})".format(self)
+    def __repr__(self):
+        return "<ChangeSocietyVhostDocroot {0.society_society} {0.domain}>".format(self)
+
+    def __str__(self):
+        return "Change custom society domain root: {0.society_society} ({0.domain_text} -> {0.root})".format(self)
 
     def run(self, sess):
         self.log("Change domain entry")
@@ -1169,7 +1265,8 @@ class ChangeSocietyVhostDocroot(SocietyJob):
         sess.add(domain)
 
         self.log("Send confirmation")
-        mail_users(self.society, "Custom domain document root changed", "change-vhost-docroot", domain=self.domain_text, root=self.root)
+        mail_users(self.society, "Custom domain document root changed", "change-vhost-docroot",
+                   domain=self.domain_text, root=self.root)
 
 
 @add_job
@@ -1188,8 +1285,11 @@ class RemoveSocietyVhost(SocietyJob):
 
     domain = property(lambda s: s.row.args["domain"])
 
-    def __repr__(self): return "<RemoveSocietyVhost {0.society_society} {0.domain}>".format(self)
-    def __str__(self): return "Remove custom society domain: {0.society_society} ({0.domain})".format(self)
+    def __repr__(self):
+        return "<RemoveSocietyVhost {0.society_society} {0.domain}>".format(self)
+
+    def __str__(self):
+        return "Remove custom society domain: {0.society_society} ({0.domain})".format(self)
 
     def run(self, sess):
         self.log("Lookup domain entry")

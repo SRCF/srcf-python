@@ -279,8 +279,7 @@ if is_root or is_webapp:
 
         @hybrid_property
         def provisioned(self):
-            return (self.name != '') and (self.name != None)
-
+            return (self.name != '') and (self.name != None)  # noqa: E711
 
     JobState = SQLAEnum('unapproved', 'queued', 'running', 'done', 'failed', 'withdrawn',
                         name='job_state')
