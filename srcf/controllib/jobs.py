@@ -559,7 +559,7 @@ class CreateUserMailingList(Job):
         self.log("Sanity check list name")
         if (not re.match(r"^[A-Za-z0-9\-]+$", self.listname) or
             self.listname.split("-")[-1] in ("admins", "admin", "bounces", "confirm", "join", "leave",
-                                                "owner", "request", "subscribe", "unsubscribe")):
+                                             "owner", "request", "subscribe", "unsubscribe")):
             raise JobFailed("Invalid list suffix {}".format(self.listname))
 
         srcflib_call(self, "Create list", mailman.create_list, self.owner, self.listname)
@@ -883,7 +883,9 @@ class ChangeSocietyAdmin(SocietyJob):
 
     def run(self, sess):
         if self.owner not in self.society.admins:
-            raise JobFailed("{0.owner.crsid} is not permitted to change the admins of {0.society.society}".format(self))
+            raise JobFailed(
+                "{0.owner.crsid} is not permitted to change the admins of {0.society.society}".format(self)
+            )
 
         if self.action == "add":
             self.add_admin(sess)
@@ -919,7 +921,7 @@ class CreateSocietyMailingList(SocietyJob):
         self.log("Sanity check list name")
         if (not re.match(r"^[A-Za-z0-9\-]+$", self.listname) or
             self.listname.split("-")[-1] in ("admins", "admin", "bounces", "confirm", "join", "leave",
-                                                "owner", "request", "subscribe", "unsubscribe")):
+                                             "owner", "request", "subscribe", "unsubscribe")):
             raise JobFailed("Invalid list suffix {}".format(self.listname))
 
         srcflib_call(self, "Create list", mailman.create_list, self.society, self.listname)
