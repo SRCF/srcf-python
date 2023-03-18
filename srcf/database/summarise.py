@@ -56,15 +56,19 @@ def summarise_society(society):
             private.append('Role email: %s' % society.role_email)
         else:
             private.append('No role email.')
-        private += (['Joined: %s' % society.joined.strftime("%Y/%m"),
-                     'UID: %s' % society.uid,
-                     'GID: %s' % society.gid,
-                     'Disk quota: %s/%s GB (updated: %s)' % (
-                         society.disk_usage_gb, society.disk_quota_gb, society.disk_usage_updated
-                         ),  # noqa: E126
-                     'Danger: %s' % society.danger] +
-                    _format_notes(society.notes) +
-                    _format_domains(society.domains))
+        private += (
+            [
+                'Joined: %s' % society.joined.strftime("%Y/%m"),
+                'UID: %s' % society.uid,
+                'GID: %s' % society.gid,
+                'Disk quota: %s/%s GB (updated: %s)' % (
+                    society.disk_usage_gb, society.disk_quota_gb, society.disk_usage_updated
+                ),
+                'Danger: %s' % society.danger
+            ] +
+            _format_notes(society.notes) +
+            _format_domains(society.domains)
+        )
 
     lines = (
         ['%s: %s' % (society.society, society.description)] +
