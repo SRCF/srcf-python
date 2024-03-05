@@ -241,13 +241,17 @@ def populate_home_dir(member: Member) -> Result[Unset]:
 @Result.collect
 def create_public_html(owner: Owner) -> Collect[None]:
     """
-    Create a user's public_html directory, and a symlink to it in their home directory.
+    Create a user's public_html directory inside their public directory.
+
+    For creations before April 2023, also add a symlink to it in their home directory.
     """
     user = unix.get_user(owner.uid)
-    link = os.path.join(owner_home(owner), "public_html")
-    target = os.path.join(owner_home(owner, True), "public_html")
-    yield unix.mkdir(target, user)
-    yield unix.symlink(link, target)
+    public_html = os.path.join(owner_home(owner, True), "public_html")
+    yield unix.mkdir(public_html, user)
+    symlink_cutoff = date(2023, 4, 1)  # accounts provisioned from this date don't get the symlink
+    if date.today() < symlink_cutoff:
+        link = os.path.join(owner_home(owner), "public_html")
+        yield unix.symlink(link, public_html)
 
 
 @Result.collect

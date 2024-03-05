@@ -29,6 +29,7 @@ python3-srcf (0.0.15) UNRELEASED; urgency=medium
 
 python3-srcf (0.0.14) UNRELEASED; urgency=medium
 
+  * Cease creation of symlinks to public_html from April 2023
   * Email sysadmins on manual group grant/revoke
   * Add script email wrapper to prefix sysadmin mail
   * Use an auto-commit session for scripts
