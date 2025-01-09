@@ -61,6 +61,13 @@ class Missing:
     def __init__(self, key):
         self.crsid = self.name = self.society = self.description = key
         self.danger = True
+        self.admins = set()
+
+    def __contains__(self, key):
+        return False
+
+    def __getattr__(self, name):
+        return None
 
 
 def _try_get(fn):
