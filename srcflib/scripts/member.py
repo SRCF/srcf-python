@@ -57,3 +57,21 @@ def reactivate(sess: Session, member: Member, email: Optional[str]):
         print("Keeping existing email address: {}".format(email))
     confirm("Reactivate {}?".format(member.name))
     membership.reactivate_member(sess, member, email)
+
+
+@entrypoint
+def delete(sess: Session, members: Sequence[Member]):
+    """
+    Delete all traces of a member's user account and membership.
+
+    Usage: {script} MEMBERS...
+    """
+    if len(members) > 1:
+        print("Erasing:")
+        for member in members:
+            print("- {}".format(member.name))
+        confirm("Erase {} members?".format(len(members)))
+    else:
+        confirm("Erase {}?".format(members[0].name))
+    for member in members:
+        membership.delete_member(sess, member)
