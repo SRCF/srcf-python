@@ -48,7 +48,7 @@ def mysql_conn():
     if not mysql_user or not mysql_passwd:
         my_cnf = configparser.ConfigParser()
         my_cnf.read(os.path.expanduser("~/.my.cnf"))
-        mysql_user = getpass.getuser().replace("-", "_")
+        mysql_user = my_cnf.get('client', 'user', fallback=getpass.getuser().replace("-", "_"))
         mysql_passwd = my_cnf.get('client', 'password')
     conn = pymysql.connect(user=mysql_user, db=mysql_user, passwd=mysql_passwd)
     conn.autocommit = True
