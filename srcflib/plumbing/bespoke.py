@@ -172,6 +172,8 @@ def delete_society(sess: SQLASession, society: Society) -> Result[Unset]:
         raise ValueError("Remove society admins for {} first".format(society))
     if get_custom_domains(sess, society):
         raise ValueError("Remove domains for {} first".format(society))
+    for pending in society.pending_admins:
+        sess.delete(pending)
     sess.delete(society)
     LOG.debug("Deleted society record: %r", society)
     return Result(State.success)
