@@ -1,7 +1,7 @@
 import sys
 from datetime import datetime
 
-from . import Member, Society, PendingAdmin, Session, assert_readwrite
+from . import Member, Society, Session, assert_readwrite
 # direct access to this makes things a lot easier
 from .schema import society_admins
 
@@ -82,28 +82,6 @@ def read_socqueue():
             yield crsid, soc
 
 
-def prune_socqueue(socqueue, session):
-    pruned = 0
-    total = 0
-
-    for crsid, society in socqueue:
-        mem = session.query(Member).get(crsid)
-        soc_obj = session.query(Society).get(society)
-
-        if soc_obj is None:
-            print("Socqueue entry for nonexistant soc", society, file=sys.stderr)
-            continue
-
-        total += 1
-
-        if mem is not None:
-            pruned += 1
-        else:
-            yield crsid, soc_obj
-
-    print("Pruned", pruned, "out of", total, "socqueue lines", file=sys.stderr)
-
-
 def triggers(session, action):
     assert action in ("ENABLE", "DISABLE")
     for table in ("members", "societies"):
@@ -130,8 +108,6 @@ def main():
 
     session.execute(society_admins.insert(), list(read_society_admins()))
 
-    for crsid, society in prune_socqueue(read_socqueue(), session):
-        session.add(PendingAdmin(crsid=crsid, society=society))
     session.flush()
 
     triggers(session, "ENABLE")

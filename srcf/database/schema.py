@@ -19,8 +19,7 @@ from sqlalchemy.ext.mutable import MutableDict
 from .compat import MemberCompat, SocietyCompat, AdminsSetCompat
 
 
-__all__ = ["Member", "Society", "PendingAdmin",
-           "POSTGRES_USER", "RESTRICTED"]
+__all__ = ["Member", "Society", "POSTGRES_USER", "RESTRICTED"]
 
 
 # Should we make the notes & danger flags, and pending-admins
@@ -186,7 +185,6 @@ class Society(Base, SocietyCompat):
                           backref=backref("societies", collection_class=set))
 
     if is_root or is_webapp:
-        pending_admins = relationship("PendingAdmin", backref=backref("society"))
         domains = relationship("Domain", primaryjoin="foreign(Domain.owner) == Society.society")
 
     def __str__(self):
@@ -225,24 +223,6 @@ class Society(Base, SocietyCompat):
 
 
 if is_root or is_webapp:
-
-    class PendingAdmin(Base):
-        __tablename__ = "pending_society_admins"
-
-        # There is no ForeignKey constraint here because this table exists to
-        # reference users that don't exist yet.
-        crsid = Column(CRSID_TYPE, CheckConstraint('crsid = lower(crsid)'),
-                       primary_key=True)
-        society_society = Column(SOCIETY_TYPE,
-                                 ForeignKey('societies.society'),
-                                 name="society",
-                                 primary_key=True)
-
-        def __str__(self):
-            return "{0} {1}".format(self.crsid, self.society.society)
-
-        def __repr__(self):
-            return '<PendingAdmin {0} {1}>'.format(self.crsid, self.society.society)
 
     class Domain(Base):
         __tablename__ = "domains"
@@ -329,8 +309,6 @@ if is_root or is_webapp:
                 return "[Could not decode output as UTF-8]\n{}".format(_hexdump(raw))
 
 else:
-
-    PendingAdmin = None
 
     LogLevel = None
 
