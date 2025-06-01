@@ -51,11 +51,13 @@ Global generic default value.
 """
 
 
-def owner_name(owner: Owner) -> str:
+def owner_name(owner: Union[Owner, str]) -> str:
     """
     Return a `Member` CRSid, or a `Society` short name.
     """
-    if isinstance(owner, Member):
+    if isinstance(owner, str):
+        return owner
+    elif isinstance(owner, Member):
         return owner.crsid
     elif isinstance(owner, Society):
         return owner.society
