@@ -1,3 +1,20 @@
+python3-srcf (0.0.17) UNRELEASED; urgency=medium
+
+  * Fix domain handling during group deletion
+  * Add sysadmin account cancellation tooling
+  * srcf.database: Add last_read to domain records
+  * srcflib.scripts: Add support for sequence args
+  * srcflib.scripts: Add bulk member cancellation
+  * srcflib.scripts: Fix handling of non-suffixed lists
+  * srcf.controllib: Try to handle deleted referenced users in jobs
+  * srcflib.scripts: Add erase member script
+  * srcf.controllib: Optionally read MySQL username from .my.cnf
+  * Drop database support for pending group admins
+  * Allow passing string owner names
+  * Show unmaintained group accounts on member cancel
+
+ -- SRCF Sysadmins <sysadmins@srcf.net>  Wed, 20 Aug 2025 19:00:00 +0100
+
 python3-srcf (0.0.16) UNRELEASED; urgency=medium
 
   * Add contactable field to members
