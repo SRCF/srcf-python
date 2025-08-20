@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from srcf.database.schema import Member
 
-from .utils import confirm, entrypoint
+from .utils import confirm, entrypoint, error
 from ..email import send, SYSADMINS
 from ..tasks import membership
 
@@ -32,6 +32,15 @@ def cancel(sess: Session, members: Sequence[Member], unset_member: bool, keep_co
 
     Usage: {script} MEMBERS... [--unset-member] [--keep-contactable]
     """
+    crsids = {member.crsid for member in members}
+    societies = {society for member in members for society in member.societies}
+    unmaintained = {society for society in societies if not (society.admin_crsids - crsids)}
+    if unmaintained:
+        error("Groups left unmaintained:")
+        for society in sorted(unmaintained, key=lambda society: society.society):
+            error("- {} ({})".format(society.society, society.description))
+            if society.role_email:
+                error("  - role email: {}".format(society.role_email))
     if len(members) > 1:
         print("Cancelling:")
         for member in members:
