@@ -11,7 +11,7 @@ import pwd
 import shutil
 from subprocess import CalledProcessError
 import time
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
 from requests import Session as RequestsSession
 
@@ -23,8 +23,7 @@ from srcf.database import Domain, HTTPSCert, Job, MailHandler, Member, Society
 from srcf.database.queries import get_member, get_society
 from srcf.database.summarise import summarise_society
 
-from .common import (Collect, command, make, Owner, owner_home, owner_name, require_host, Result,
-                     State, Unset)
+from .common import Collect, command, Owner, owner_home, owner_name, require_host, Result, State, Unset
 from .mailman import MailList
 from . import hosts, unix
 from ..email import send
@@ -48,6 +47,24 @@ def _user_name(user: Union[Owner, unix.User]) -> str:
         return user.pw_name
     elif isinstance(user, (Member, Society)):
         return owner_name(user)
+    else:
+        raise TypeError(user)
+
+
+def _user_home(user: Union[Owner, unix.User]) -> str:
+    if isinstance(user, pwd.struct_passwd):
+        return user.pw_dir
+    elif isinstance(user, (Member, Society)):
+        return owner_home(user)
+    else:
+        raise TypeError(user)
+
+
+def _user_uid_gid(user: Union[Owner, unix.User]) -> Tuple[int, int]:
+    if isinstance(user, pwd.struct_passwd):
+        return user.pw_uid, user.pw_gid
+    elif isinstance(user, (Member, Society)):
+        return user.uid, user.gid
     else:
         raise TypeError(user)
 
@@ -233,17 +250,18 @@ def remove_society_admin(sess: SQLASession, member: Member, society: Society,
     yield link_soc_home_dir(member, society)
 
 
-def populate_home_dir(member: Member) -> Result[Unset]:
+def populate_home_dir(user: Union[Member, unix.User]) -> Result[Unset]:
     """
     Copy the contents of ``/etc/skel`` to a new user's home directory.
 
     This must be done before creating anything else in the directory.
     """
-    target = owner_home(member)
+    target = _user_home(user)
     if os.listdir(target):
         # Avoid potentially clobbering existing files.
         return Result(State.unchanged)
-    unix.copytree_chown_chmod("/etc/skel", target, member.uid, member.gid)
+    uid, gid = _user_uid_gid(user)
+    unix.copytree_chown_chmod("/etc/skel", target, uid, gid)
     return Result(State.success)
 
 

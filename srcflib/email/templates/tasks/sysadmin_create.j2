@@ -1,0 +1,51 @@
+{% extends layout %}
+
+{% block subject %}
+Your new SRCF administrative account
+{% endblock %}
+
+{% block body %}
+Welcome to the SRCF system administration team -- thank you for joining us!
+
+We've created a new account for you to perform all administrative tasks:
+
+    Username: {{ username }}
+    Password: {{ password }}
+
+Security of this account is very important!  Please immediately change the
+password to something unguessable, and make it different from your regular
+SRCF account password.
+
+Your new administrative account is a member of the `sysadmins` user group,
+and as a consequence has full root access via the `sudo` command to most of
+our servers.
+
+The policy regarding use of this access is:
+
+  * Do not log in as `root` directly –- this means no use of `su`,
+    `sudo -i`, `sudo -s` and so on.
+
+    Execute all commands via `sudo` from your normal account.  This
+    improves logging and accountability.
+
+  * Keep your normal and sysadmin accounts as separate as possible.
+
+    Do not `su` from one to the other, or give one a private key
+    which will provide access to the other.  If your website is
+    compromised, this should not mean pip is rooted.
+
+More information on being an administrator for the SRCF can be found in the
+executive wiki, which you should have been granted access to:
+
+    https://wiki.executive.srcf.net
+
+If you have any questions, however silly, please ask –- it will help our
+woefully neglected documentation process!  :)
+
+Finally, and most importantly, you should be on #sysadmin on the SRCF IRC
+network, irc.srcf.net.  It's recommended that you use a bouncer or persistent
+client (e.g. running irssi inside screen/tmux on pip or another shell server)
+so that you don't miss any messages.
+
+With great power comes great responsibility.
+{% endblock %}

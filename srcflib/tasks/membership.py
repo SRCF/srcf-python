@@ -78,7 +78,8 @@ def create_member(sess: SQLASession, crsid: str, preferred_name: str, surname: s
     if res_record:
         yield bespoke.export_members()
     if passwd:
-        yield send(member, "/tasks/member_create.j2", {"password": passwd})
+        yield bespoke.log_to_file(MEMBER_LOG, "{} user account created".format(crsid))
+        yield send(member, "tasks/member_create.j2", {"password": passwd})
     return (member, passwd)
 
 
@@ -105,7 +106,7 @@ def create_sysadmin(sess: SQLASession, member: Member,
     yield bespoke.update_nis(new_user)
     yield unix.create_home(user, os.path.join("/home", username))
     yield unix.create_home(user, os.path.join("/public/home", username), True)
-    yield bespoke.populate_home_dir(member)
+    yield bespoke.populate_home_dir(user)
     yield unix.add_to_group(user, unix.get_group("sysadmins"))
     yield unix.add_to_group(user, unix.get_group("adm"))
     yield unix.grant_netgroup(user, "sysadmins")
@@ -114,6 +115,10 @@ def create_sysadmin(sess: SQLASession, member: Member,
     with pgsql.context() as cursor:
         yield pgsql_p.ensure_user(cursor, username)
         yield pgsql_p.grant_role(cursor, username, pgsql_p.get_role(cursor, "sysadmins"))
+    if passwd:
+        yield bespoke.log_to_file(MEMBER_LOG, "{} administrative account created".format(username))
+        yield send(member, "tasks/sysadmin_create.j2", {"username": username, "password": passwd})
+        yield send(SYSADMINS, "tasks/sysadmin_create_log.j2", {"username": username})
     return passwd
 
 
@@ -126,6 +131,7 @@ def reset_password(member: Member) -> Collect[Password]:
     res_passwd = yield from unix.reset_password(user)
     passwd = res_passwd.value
     yield bespoke.update_nis()
+    yield bespoke.log_to_file(MEMBER_LOG, "{} password reset".format(member.crsid))
     yield send(member, "/tasks/member_password.j2", {"password": passwd})
     return passwd
 
@@ -331,7 +337,7 @@ def cancel_sysadmin(sess: SQLASession, member: Member) -> Collect[None]:
     yield bespoke.update_nis()
     if any((res_sysadmins, res_adm, res_soc, res_user)):
         yield bespoke.log_to_file(MEMBER_LOG, "{} user account cancelled".format(username))
-        yield send(SYSADMINS, "tasks/member_cancel.j2", {"username": username})
+        yield send(SYSADMINS, "tasks/sysadmin_cancel.j2", {"username": username})
 
 
 @Result.collect
