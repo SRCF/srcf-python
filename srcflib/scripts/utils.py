@@ -129,7 +129,7 @@ def entrypoint(fn: Callable[..., Any]) -> Callable[..., Any]:
                     ok = False
                     error("{!r} is not valid for parameter {!r}".format(value, name), colour="1")
             if not sequence:
-                parsed = parsed[0]
+                parsed = next(iter(parsed), None)
             extra[name] = parsed
         if not ok:
             sys.exit(1)
