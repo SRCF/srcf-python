@@ -2,6 +2,7 @@ from __future__ import print_function, unicode_literals
 
 from binascii import unhexlify
 from enum import Enum
+import inspect
 import os
 import pwd
 
@@ -17,6 +18,14 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.ext.mutable import MutableDict
 
 from .compat import MemberCompat, SocietyCompat, AdminsSetCompat
+
+
+# Newer SQLAlchemy emits a warning for overlapping foreign keys which can be
+# silenced by setting the `overlaps` parameter, but this doesn't exist in
+# older versions.  Check first if we can set it.
+RELATIONSHIP_OVERLAP = "overlaps" in inspect.signature(relationship).parameters
+
+DOMAIN_OVERLAP = {"overlaps": "domains"} if RELATIONSHIP_OVERLAP else {}
 
 
 __all__ = ["Member", "Society", "POSTGRES_USER", "RESTRICTED"]
@@ -103,7 +112,7 @@ class Member(Base, MemberCompat):
         ucam_redirect = Column(Boolean, nullable=False, server_default='f')
         danger = Column(Boolean, nullable=False, server_default='f')
         notes = Column(Text, nullable=False, server_default='')
-        domains = relationship("Domain", primaryjoin="foreign(Domain.owner) == Member.crsid")
+        domains = relationship("Domain", primaryjoin="foreign(Domain.owner) == Member.crsid", **DOMAIN_OVERLAP)
         contactable = Column(Boolean, nullable=False, server_default='f')
     if is_root or is_webapp or is_hades:
         mail_handler = Column(SQLAEnum(*(handler.name for handler in MailHandler)),
@@ -185,7 +194,7 @@ class Society(Base, SocietyCompat):
                           backref=backref("societies", collection_class=set))
 
     if is_root or is_webapp:
-        domains = relationship("Domain", primaryjoin="foreign(Domain.owner) == Society.society")
+        domains = relationship("Domain", primaryjoin="foreign(Domain.owner) == Society.society", **DOMAIN_OVERLAP)
 
     def __str__(self):
         return self.society
