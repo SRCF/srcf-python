@@ -371,7 +371,7 @@ def get_nfs_acl(path: str, user: str) -> str:
     allowed: Set[str] = set()
     denied: Set[str] = set()
     for line in raw.splitlines():
-        if line.startswith("#"):
+        if not line or line.startswith("#"):
             continue
         type_, _, principal, perms = line.split(":")
         if principal != user:
