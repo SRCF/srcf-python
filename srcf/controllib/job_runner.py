@@ -48,6 +48,8 @@ def email_error(job_id, message):
 
 class Listen(sqlalchemy.sql.expression.Executable,
              sqlalchemy.sql.expression.ClauseElement):
+    inherit_cache = False
+
     def __init__(self, channel):
         self.channel = channel
 
