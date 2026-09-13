@@ -23,7 +23,7 @@ from srcf.database import Domain, HTTPSCert, Job, MailHandler, Member, Society
 from srcf.database.queries import get_member, get_society
 from srcf.database.summarise import summarise_society
 
-from .common import Collect, command, Owner, owner_home, owner_name, require_host, Result, State, Unset
+from .common import Collect, command, make, Owner, owner_home, owner_name, require_host, Result, State, Unset
 from .mailman import MailList
 from . import hosts, unix
 from ..email import send
