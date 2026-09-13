@@ -307,7 +307,7 @@ def add_to_group(user: User, group: Group) -> Result[Unset]:
     """
     if user.pw_name in group.gr_mem:
         return Result(State.unchanged)
-    command(["/usr/sbin/addgroup", user.pw_name, group.gr_name])
+    command(["/usr/sbin/adduser", user.pw_name, group.gr_name])
     group.gr_mem.append(user.pw_name)
     LOG.debug("Added UNIX user to group: %r %r", user, group)
     return Result(State.success)
