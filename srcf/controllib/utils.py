@@ -21,7 +21,7 @@ UCAM_LOOKUP = Server('ldap.lookup.cam.ac.uk', get_info=ALL)
 # LDAP helper
 def ldapsearch(crsid):
     with Connection(UCAM_LOOKUP) as conn:
-        conn.search('ou=people, o=University of Cambridge,dc=cam,dc=ac,dc=uk',
+        conn.search('ou=people,o=University of Cambridge,dc=cam,dc=ac,dc=uk',
                     '(uid={0})'.format(crsid), attributes=ALL_ATTRIBUTES)
         results = conn.entries
 
